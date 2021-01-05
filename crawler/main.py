@@ -11,7 +11,7 @@ def get_today():
 
 # get the date string of the day which is 12 months ago
 def get_year():
-    last_year_date = datetime.date.today() - datetime.timedelta(months=12)
+    last_year_date = datetime.date.today() - datetime.timedelta(days=12)
     return last_year_date.strftime('%Y%m%d')
 
 
@@ -59,7 +59,7 @@ class Tushare:
         save(df)
 
     # get index list or stock list from database
-    def get_list_from_db(self, isIndex):
+    def get_list_from_db(self, is_index):
         pass
 
     # base api wrapper of tushare for index number
@@ -71,7 +71,7 @@ class Tushare:
         pass
 
     # iterate the index list or stock list to get the data of specific index or stock
-    def trace_list(self, isIndex):
+    def trace_list(self, is_index):
         pass
 
 
@@ -99,7 +99,7 @@ class Daily:
 
 
 # base class for basic crawler operation
-class Crawler_base:
+class CrawlerBase:
     base_url = ""
     header = {}  # 字典
 
@@ -111,7 +111,7 @@ class Crawler_base:
         pass
 
     # get response and decode it
-    def get_url_content(sel, url):
+    def get_url_content(self, url):
         pass
 
     # parse the document and extract the wanted element
@@ -121,7 +121,7 @@ class Crawler_base:
 
 
 # Crawler for Guba
-class Guba(Crawler_base):
+class Guba(CrawlerBase):
     guba_home = ""
 
     def __init__(self):
@@ -162,7 +162,7 @@ class Guba(Crawler_base):
 
 
 # Crawler for Xueqiu
-class Xueqiu(Crawler_base):
+class Xueqiu(CrawlerBase):
     xueqiu_home = ""
 
     def __init__(self):
@@ -229,7 +229,7 @@ class Scheduler:
         self.set_task()
 
     # read config file and initialize it
-    def set_task(self, map):
+    def set_task(self):
         with open("config.yml") as config_file:
             self.config = json.loads(config_file.read())
 
