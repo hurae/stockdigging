@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.8 (pycharm)" project-jdk-type="Python SDK" />
+  <component name="ProjectPlainTextFileTypeManager">
+    <file url="file://$PROJECT_DIR$/doc/python_style_guide.md" />
+  </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.8 (stockdigging)" project-jdk-type="Python SDK" />
 </project>
