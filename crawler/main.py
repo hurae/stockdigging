@@ -1,7 +1,8 @@
 import json
-
+import pandas as pd
 import tushare as ts
 import datetime
+import status_code
 
 
 # get the date string of today
@@ -9,70 +10,82 @@ def get_today():
     return datetime.date.today().strftime('%Y%m%d')
 
 
-# get the date string of the day which is 12 months ago
+# get the date string of the day which is 365 days ago
 def get_year():
-    last_year_date = datetime.date.today() - datetime.timedelta(days=12)
+    last_year_date = datetime.date.today() - datetime.timedelta(days=365)
     return last_year_date.strftime('%Y%m%d')
 
 
+# todo: complete saver function
 # Universal DB saver
-def save(df):
+def save(df: pd.DataFrame, op_code: int):
     # if df != None:
     json_string = df.to_json(orient='split', force_ascii=False)
-    print(json_string)
+    print(op_code, json_string)
 
 
 # wrapper of tushare sdk, adapted for our needs
 class Tushare:
     pro_stock = ts.pro_api('85c250f231ccbe95aa63350b365d892161ecf18810ff7b93e35fc1f4')
     pro_index = ts.pro_api('6d2175719e5b5d27c8b7f3ae83402bbf806979bcd53ec6500808c31a')
+    op_code = status_code.OpCode()
+    error_code = status_code.ErrorCode()
 
     def __init__(self):
-        pass
+        pd.set_option('display.max_columns', 100)
+        pd.set_option('display.max_rows', 1000)
+        pd.set_option('display.width', 500)
 
     # get all basic index info and save it
-    def get_index_info(self):
-        pass
+    def get_basic_info(self, is_index: bool):
+        if is_index:
+            df = self.pro_index.index_basic()
+            code = self.op_code.SET_INDEX_INFO
+        else:
+            df = self.pro_stock.stock_basic(exchange='', list_status='L',
+                                            fields='ts_code,name,symbol,list_date,area,industry')
+            code = self.op_code.SET_STOCK_INFO
+        save(df, op_code=code)
 
-    # get all basic stock info and save it
-    def get_stock_info(self):
-        df = self.pro_stock.stock_basic(exchange='', list_status='L',
-                                        fields='ts_code,name,symbol,list_date,area,industry')
-        save(df)
+    # get today's index number or stock price
+    def get_price_today(self, ts_code: str, is_index: bool):
+        today = get_today()
+        self.get_price_daily(ts_code, today, today, is_index)
+        self.get_price_daily(ts_code, today, today, is_index)
 
-    # get today's index number
-    def get_index_today(self, ts_code):
-        pass
+    # get the last year's index number history or stock price history
+    def get_price_year(self, ts_code: str, is_index: bool):
+        year_ago = get_year()
+        today = get_today()
+        self.get_price_daily(ts_code, year_ago, today, is_index)
+        self.get_price_daily(ts_code, year_ago, today, is_index)
 
-    # get today's stock price
-    def get_stock_today(self, ts_code):
-        df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date=get_today(), end_date=get_today())
-        save(df)
-
-    # get the last year's index number history
-    def get_index_year(self, ts_code):
-        pass
-
-    # get the last year's stock price history
-    def get_stock_year(self, ts_code):
-        df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date=get_year(), end_date=get_today())
-        save(df)
-
+    # todo: complete ts_code getter
     # get index list or stock list from database
-    def get_list_from_db(self, is_index):
-        pass
+    def get_list_from_db(self, is_index: bool):
+        if is_index:
+            return []
+        else:
+            return []
 
-    # base api wrapper of tushare for index number
-    def get_index_daily(self, ts_code, start_date, end_date):
-        pass
-
-    # base api wrapper of tushare for stock price
-    def get_stock_daily(self, ts_code, start_date, end_date):
-        pass
+    # base api wrapper of tushare for index number and stock price
+    def get_price_daily(self, ts_code: str, start_date: str, end_date: str, is_index: bool):
+        if is_index:
+            df = self.pro_index.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+            code = self.op_code.SET_INDEX_DAILY
+        else:
+            df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date=start_date, end_date=end_date)
+            code = self.op_code.SET_STOCK_DAILY
+        save(df, op_code=code)
 
     # iterate the index list or stock list to get the data of specific index or stock
-    def trace_list(self, is_index):
-        pass
+    def trace_list(self, is_index: bool, only_today=True):
+        deal_list = self.get_list_from_db(is_index)
+        for ele in deal_list:
+            if only_today:
+                self.get_price_today(ele, is_index)
+            else:
+                self.get_price_year(ele, is_index)
 
 
 # universal finance data getter
