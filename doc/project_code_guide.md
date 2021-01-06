@@ -44,3 +44,4 @@
 9. 出现拼写错误时，若为既有单词必然是你自己拼错了；如果不是，可以选择More Action -> Add to dictionary
 10. 变量名或函数名的自动补全提示具有模糊匹配功能，可以按照单词首字母简拼的方式使用，例如可以使用getlfd匹配get_list_from_db
 11. 按住CTRL + 鼠标左键单击变量名或类名或函数名可以跳转到定义
+12. "\# todo: somthing to do" --> add todo item to the TODO panel
