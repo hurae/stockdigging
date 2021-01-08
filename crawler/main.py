@@ -3,6 +3,13 @@ import pandas as pd
 import tushare as ts
 import datetime
 import status_code
+import requests
+import re
+import time
+import random
+from lxml import etree
+from selenium import webdriver
+from time import sleep
 
 
 # get the date string of today
