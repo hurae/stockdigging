@@ -24,16 +24,21 @@ class CrawlerBase:
         self.session.headers.update(headers)
 
     # get response and decode it
-    def get_url_content(self, url, headers):
-        res = self.session.get(url, headers=headers, timeout=(3, 5))
+    def get_url_content(self, url, headers, params=None):
+        if params is None:
+            res = self.session.get(url, headers=headers, timeout=(3, 5))
+        elif params is dict:
+            res = self.session.post(url, params, headers=headers, timeout=(3, 5))
+        else:
+            raise TypeError
         # todo: error handler
         if res.status_code != 200:
             raise IOError
         return res.text
 
     # get decoded response and parse it as json
-    def get_parsed_json_response(self, url, headers):
-        decoded_text = self.get_url_content(url, headers)
+    def get_parsed_json_response(self, url, headers, params=None):
+        decoded_text = self.get_url_content(url, headers, params)
         return json.loads(decoded_text)
 
     # parse the document and extract the wanted element
