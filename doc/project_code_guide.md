@@ -45,3 +45,5 @@
 10. 变量名或函数名的自动补全提示具有模糊匹配功能，可以按照单词首字母简拼的方式使用，例如可以使用getlfd匹配get_list_from_db
 11. 按住CTRL + 鼠标左键单击变量名或类名或函数名可以跳转到定义
 12. "\# todo: somthing to do" --> add todo item to the TODO panel
+13. 选中 + "CTRL + ALT + M"  --> Extract Method，选中的代码行自动提取出新函数
+14. 选中 + "CTRL + ALT + N" --> Inline Refactor，选中的变量自动转换为inline形式

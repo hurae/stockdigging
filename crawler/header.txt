@@ -1,0 +1,14 @@
+Host: xueqiu.com
+Connection: keep-alive
+Accept: */*
+DNT: 1
+X-Requested-With: XMLHttpRequest
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36
+elastic-apm-traceparent: 00-d82bd41ebcb2b3116b7f1c92e1f3a711-7fc06c124c6cfa7f-00
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://xueqiu.com/S/SZ300211
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+Cookie: device_id=bb106f8825a4917c70219db041af129a; s=d4129ojzw7; xq_a_token=e220ad18f2449eca248b5aa5ba3b6464ffddef72; xqat=e220ad18f2449eca248b5aa5ba3b6464ffddef72; xq_r_token=2af0b8f80a2b546e026d684d6474e89edee05eb3; xq_id_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ1aWQiOjcxNjQzMDgyMTUsImlzcyI6InVjIiwiZXhwIjoxNjEyMDA3NDc0LCJjdG0iOjE2MDk0MTU0NzQ5OTMsImNpZCI6ImQ5ZDBuNEFadXAifQ.BEau6uteaYzN8v2z5Vff2TkqFSsu0pveDH9OfSGaCt9DEk7z_BsVOMSCVE_8zk3Fm_9ZQp3fLEZ5iVRQiXFvKqxWNaQYDYw8uiUqjQabDR6-4-wI81LO6yOYITQ4F4ozFvVaANgz7GDiGF48pthzsy7wapkGyDRgJ7ka1iFuBsjgesHBV_xIkSaADn3BZ-4ipKPtttD4aX2psyRTMJSw4_6juGdUpOo7pJQGJqVFn7BBeKLLfzOA7ZzLsxqESzU0bIsS70VqdfoBhyfzmEkNd_RVn4VAYotdGgwwNWMzEj6hZABaHS1tDZl73wunw09LbsKJBdGLLUnOawPNiufp2Q; xq_is_login=1; u=7164308215; bid=840c28f1e2bc907727de3c615d5b6730_kjcsi86q; acw_tc=2760820616099218107193584ee1eb38c75d41a0cd11fcb2c73b19925d9c01; is_overseas=0
