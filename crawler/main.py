@@ -13,13 +13,35 @@ import status_code
 # todo: complete saver function
 # Universal DB saver
 def save(df: pd.DataFrame, op_code: int):
-    # if df != None:
-    json_string = df.to_json(orient='split', force_ascii=False)
+    """
+    index_info:
+    ["ts_code","name","market","publisher","category","base_date","base_point","list_date"]
+    ["000039.SH","上证信息","SSE","中证公司","一级行业指数","20031231",1000.0,"20090109"]
+
+    stock_info:
+    ["ts_code","symbol","name","area","industry","list_date"]
+    ['688981.SH', '688981', '中芯国际-U', '上海', '半导体', '20200716']
+
+    index_daily:
+    ["ts_code","trade_date","close","open","high","low","pre_close","change","pct_chg","vol","amount"]
+    ["399300.SZ","20210105",5368.5049,5245.8355,5368.5049,5234.3775,5267.7181,100.7868,1.9133,224931159.0,498041939.6999999881]
+
+    stock_daily:
+    ["ts_code","trade_date","open","high","low","close","pre_close","change","pct_chg","vol","amount"]
+    ["600187.SH","20210105",2.46,2.46,2.39,2.41,2.47,-0.06,-2.4291,199402.05,48193.974]
+
+    final_msg:
+    {'operate_code': 9, 'data': [['600187.SH', '20210106', 2.4, 2.4, 2.34, 2.35, 2.41, -0.06, -2.4896, 122540.51, 28972.52], ['600187.SH', '20210105', 2.46, 2.46, 2.39, 2.41, 2.47, -0.06, -2.4291, 199402.05, 48193.974], ['600187.SH', '20210104', 2.48, 2.5, 2.44, 2.47, 2.5, -0.03, -1.2, 168340.77, 41672.599]]}
+    """
+
+    json_string = df.to_json(orient='values', force_ascii=False)
     final_msg = {
         "operate_code": op_code,
-        "data": [json_string]
+        "data": json_string
     }
-    print(op_code, json_string)
+    requests.post(url='ip:port/route', json=final_msg)
+    print(op_code, json_string[:120])
+    print(final_msg)
     print(df)
     print("------------------------------------------------------")
 
@@ -42,8 +64,8 @@ class Tushare:
 
     def __init__(self):
         pd.set_option('display.max_columns', 100)
-        pd.set_option('display.max_rows', 1000)
-        pd.set_option('display.width', 500)
+        pd.set_option('display.max_rows', 10)
+        pd.set_option('display.width', 200)
 
     # get all basic index info and save it
     def get_basic_info(self, is_index: bool):

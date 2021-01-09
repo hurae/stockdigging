@@ -30,12 +30,15 @@ class OpCode(_const):
         self.GET_INDUSTRY_INDEX_PREDICTION = 16
         self.GET_MARKET_INDEX_PREDICTION = 17
         self.GET_STOCK_PREDICTION = 18
-        self.GET_FEATURE = 19
-        self.GET_STOCK = 20
-        self.GET_STOCK_SELECTION = 21
-        self.GET_STOCK_INFO = 22
-        self.SET_COLLECTION = 23
-        self.DELETE_COLLECTION = 24
+        self.GET_STOCK_FEATURE = 19
+        self.GET_INDEX_FEATURE = 20
+        self.GET_INDEX_FORECAST = 21
+        self.GET_STOCK_FORECAST = 22
+        self.GET_STOCK = 23
+        self.GET_STOCK_SELECTION = 24
+        self.GET_STOCK_INFO = 25
+        self.SET_COLLECTION = 26
+        self.DELETE_COLLECTION = 27
 
 
 class ErrorCode(_const):
@@ -49,3 +52,16 @@ class ErrorCode(_const):
         self.DB_ERROR = 6
         self.INTERNAL_ERROR = 7
         self.ITERATE_EN = 8
+        self.COMMENT_NOT_UPDATED = 9
+        self.error_msg = [
+            'success',
+            'error in JSON parsing',
+            'parameter cannot be empty',
+            'illegal parameter',
+            'opcode not match',
+            'opcode not exist',
+            'database connection failed',
+            'system internal error',
+            'iterate ended',
+            'Comments not updated today'
+        ]
