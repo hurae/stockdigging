@@ -3,6 +3,10 @@
 import datetime
 
 
+# get exact time string
+def get_time():
+    return datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+
 # get the date string of today
 def get_today():
     return datetime.date.today().strftime('%Y%m%d')

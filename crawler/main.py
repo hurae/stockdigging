@@ -1,6 +1,9 @@
+import sys
+import time
 import pandas as pd
 import tushare as ts
 import yaml
+import schedule
 
 from digging_utils import *
 from crawler import *
@@ -12,9 +15,22 @@ import status_code
 def save(df: pd.DataFrame, op_code: int):
     # if df != None:
     json_string = df.to_json(orient='split', force_ascii=False)
+    final_msg = {
+        "operate_code": op_code,
+        "data": [json_string]
+    }
     print(op_code, json_string)
     print(df)
     print("------------------------------------------------------")
+
+
+# todo: complete ts_code getter
+# get index's ts_code list or stock's ts_code list from database
+def get_list_from_db(is_index: bool) -> list:
+    if is_index:
+        return []
+    else:
+        return []
 
 
 # wrapper of tushare sdk, adapted for our needs
@@ -53,14 +69,6 @@ class Tushare:
         self.get_price_daily(ts_code, year_ago, today, is_index)
         self.get_price_daily(ts_code, year_ago, today, is_index)
 
-    # todo: complete ts_code getter
-    # get index list or stock list from database
-    def get_list_from_db(self, is_index: bool):
-        if is_index:
-            return []
-        else:
-            return []
-
     # base api wrapper of tushare for index number and stock price
     def get_price_daily(self, ts_code: str, start_date: str, end_date: str, is_index: bool):
         if is_index:
@@ -72,15 +80,6 @@ class Tushare:
             code = self.op_code.SET_STOCK_DAILY
         save(df, op_code=code)
 
-    # iterate the index list or stock list to get the data of specific index or stock
-    def trace_list(self, is_index: bool, only_today=True):
-        deal_list = self.get_list_from_db(is_index)
-        for ele in deal_list:
-            if only_today:
-                self.get_price_today(ele, is_index)
-            else:
-                self.get_price_year(ele, is_index)
-
 
 # universal finance data getter
 class Daily:
@@ -91,18 +90,15 @@ class Daily:
 
     # get basic info of both index and stock
     def get_basic_info(self):
-        # return error
-        pass
+        self.tu.get_basic_info(is_index=False)
+        self.tu.get_basic_info(is_index=True)
 
-    # get today's price of both index and stock
-    def get_index_stock_today(self):
-        # return error
-        pass
-
-    # get price of both index and stock of the last 12 month
-    def get_index_stock_history(self):
-        # return error
-        pass
+    # iterate the index list or stock list to get the data of specific index or stock
+    def get_price(self, only_today=True):
+        f = self.tu.get_price_today if only_today else self.tu.get_price_year
+        for is_index in [True, False]:
+            for code in get_list_from_db(is_index):
+                f(code, is_index)
 
 
 # Crawler for Guba
@@ -168,7 +164,7 @@ class Xueqiu(CrawlerBase):
 
         return all_comments_dict
 
-    # get all comments of the specific article
+    # get all comments of the specific stock
     def get_comment_by_stock(self, stock_code: str):
         comment_reply_list = []
         popular_num_sum = 0
@@ -183,7 +179,7 @@ class Xueqiu(CrawlerBase):
         # scan all 100 pages of comments, the max page is 100
         for i in range(100):
             parsed_response = self.get_comment_page(stock_code, page=i + 1)
-            comment_list = self.get_comment_list(parsed_response)
+            comment_list = self.extract_comment_list(parsed_response)
             # stop if this stock has less than 100 pages
             if not comment_list:
                 return f"All {0} page(s) done".format(i)
@@ -237,12 +233,18 @@ class Xueqiu(CrawlerBase):
         parsed_response = self.get_parsed_json_response(url, headers=reply_headers)
         return parsed_response
 
-    def get_comment_list(self, parsed_response: dict) -> list:
+    # return a list which contains all comment items
+    def extract_comment_list(self, parsed_response: dict) -> list:
         return parsed_response['list']
 
-    # todo: deal with html label
+    # return the exact text of the given comment
     def extract_comment_text(self, comment_item):
-        return comment_item['text']
+        text = comment_item['text']
+        a_text = ','.join(map(lambda x: x[0], self.extract_label_a(text)))
+        p_text = ','.join(self.extract_label_p(text))
+        img_text = ','.join(self.extract_label_img(text))
+
+        return p_text + a_text + img_text
 
     # add view_count, reply_count and retweet_count of one page as the popular number
     def extract_popular_number_of_one_comment(self, comment_item):
@@ -302,32 +304,62 @@ class Comment:
 
 # scheduler for all crawlers
 class Scheduler:
-    # todo: design config dict
+    '''
+        config Example:
+        default:
+          today_now: TRUE
+          history_now: FALSE
+          task_time:
+            - "15:10"
+            - "22:00"
+    '''
+
     config = {}
 
-    def __init__(self):
-        self.set_task()
+    class ConfigException(Exception):
+        pass
+
+    def __init__(self, arguments):
+        self.set_task(arguments)
 
     # read config file and initialize it
-    def set_task(self):
+    def set_task(self, arguments):
         with open("config.yaml") as config_file:
-            self.config = yaml.load(config_file.read())
+            self.config = yaml.safe_load(config_file)
+            if 'default' not in self.config:
+                raise self.ConfigException("default configuration not found!")
+            self.config = self.config[arguments] if arguments in self.config else self.config['default']
 
     # main entrance of Scheduler, start from here
     def start(self):
+        if self.config['history_now']:
+            pass
+        if self.config['today_now']:
+            pass
+        for ele in self.config['task_time']:
+            schedule.every(1).day.at(ele).do(job_func=self.job())
+
+        while True:
+            schedule.run_pending()
+            time.sleep(60)
+
+    def job(self):
         pass
 
 
 if __name__ == '__main__':
-    pass
-    # scheduler = Scheduler()
-    # try:
-    #     scheduler.start()
-    # except Exception as e:
-    #     print(e)
-    # finally:
-    #     print("done")
+    sys_arguments = sys.argv[1] if len(sys.argv) >= 2 else None
+    if sys_arguments is None:
+        print('Configuration not set, trying to use default configuration...')
+    scheduler = Scheduler(sys_arguments)
+    try:
+        scheduler.start()
+    except Exception as e:
+        print(e)
+    finally:
+        print("END at {0}".format(get_time()))
 
+    # pass
     # tu = Tushare()
     # tu.get_basic_info(is_index=True)
     # tu.get_price_daily('399300.SZ', start_date='20210101', end_date='20210106', is_index=True)

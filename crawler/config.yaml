@@ -1,0 +1,18 @@
+default:
+  today_now: TRUE
+  history_now: FALSE
+  task_time:
+    - "15:10"
+    - "22:00"
+
+test_history:
+  today_now: FALSE
+  history_now: TRUE
+  task_time:
+    -
+
+test_today:
+  today_now: TRUE
+  history_now: FALSE
+  task_time:
+    -
