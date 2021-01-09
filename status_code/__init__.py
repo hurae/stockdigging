@@ -49,3 +49,4 @@ class ErrorCode(_const):
         self.DB_ERROR = 6
         self.INTERNAL_ERROR = 7
         self.ITERATE_EN = 8
+
