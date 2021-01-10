@@ -3,10 +3,14 @@ import pandas as pd
 from statsmodels.formula.api import ols
 import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
+import status_code
+import sys
 
 storage = '127.0.0.1:111'
 senta = hub.Module(name="senta_lstm")  # load model
 begin = 0  # first get comment
+op_code = status_code.OpCode()
+err_code = status_code.ErrorCode()
 
 
 # deal with comments
@@ -45,17 +49,17 @@ def train(op3, op4, op5):
     send_3 = {"operate_code": op3}
     response_json = requests.post(storage, data=send_3).json
     all_params = pd.DataFrame()
-    while response_json["error_code"] == 0:
+    while response_json["error_code"] == err_code.SUCCESS:
         data = response_json["data"]
         pr = Predict(data)
         params = pr.predict()
         all_params = pd.concat([all_params, params])
         response_json = requests.post(storage, data=send_3).json
-    if response_json["error_code"] == 5:
+    if response_json["error_code"] == err_code.ITERATE_END:
         # get today's public index and hot num
         send_4 = {"operate_code": op4}
         response_json = requests.post(storage, data=send_4).json
-        if response_json["error_code"] == 0:
+        if response_json["error_code"] == err_code.SUCCESS:
             index = pd.DataFrame(data=response_json["data"], columns=['today_public_index', 'today_num'])
             index = pd.concat([all_params, index], axis=1)
             index["forecast"] = index["public_index"] * index["today_public_index"] + index["num"] * index[
@@ -71,14 +75,13 @@ def train(op3, op4, op5):
 def get_comment(op1, op2):
     send_1 = {"operate_code": op1}
     response = requests.post(storage, data=send_1).json
-    while response["error_code"] == 0:
+    while response["error_code"] == err_code.SUCCESS:
         data = response["data"]
         p = Processing(data)
         public_index = p.comment_sentiment()
-        del p
         send_2 = {"operate_code": op2, "data": {"public_index": public_index}}
         response = requests.post(storage, data=send_2).json
-        if response["error_code"] == 0:
+        if response["error_code"] == err_code.SUCCESS:
             response = requests.post(storage, data=send_1).json
     return response["error_code"]
 
@@ -86,21 +89,23 @@ def get_comment(op1, op2):
 def main():
     global begin
     if begin == 0:
-        error_code = get_comment(op1=1, op2=3)
-        if error_code == 5:
+        error_code = get_comment(op1=op_code.GET_ALL_COMMENT, op2=op_code.SET_PUBLIC_OPINION)
+        if error_code == err_code.SUCCESS:
             begin = 1
         else:
             return main()
     if begin == 1:
-        error_code = get_comment(op1=2, op2=3)
-        if error_code == 5:
-            error_code = train(op3=19, op4=21, op5=5)
-            if error_code == 0:
-                error_code = train(op3=20, op4=22, op5=4)
-                if error_code == 0:
+        error_code = get_comment(op1=op_code.GET_TODAY_COMMENT, op2=op_code.SET_PUBLIC_OPINION)
+        if error_code == err_code.ITERATE_END:
+            error_code = train(op3=op_code.GET_INDEX_FEATURE_HISTORY, op4=op_code.GET_INDEX_FEATURE_TODAY,
+                               op5=op_code.SET_INDEX_PREDICTION)
+            if error_code == err_code.SUCCESS:
+                error_code = train(op3=op_code.GET_STOCK_FEATURE_HISTORY, op4=op_code.GET_STOCK_FEATURE_TODAY,
+                                   op5=op_code.SET_INDEX_PREDICTION)
+                if error_code == err_code.SUCCESS:
                     return error_code
                 else:
-                    main()
+                    return main()
             else:
                 return main()
         else:
@@ -108,6 +113,10 @@ def main():
 
 
 if __name__ == '__main__':
-    scheduler = BlockingScheduler()
-    scheduler.add_job(main, 'cron', hour='16', minute='30')
-    scheduler.add_job(main, 'cron', hour='22', minute='00')
+    if (len(sys.argv)) == 2:
+        # test
+        main()
+    else:
+        scheduler = BlockingScheduler()
+        scheduler.add_job(main, 'cron', hour='16', minute='30')
+        scheduler.add_job(main, 'cron', hour='22', minute='00')
