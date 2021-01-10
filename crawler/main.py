@@ -1,50 +1,109 @@
+import sys
+import time
 import pandas as pd
 import tushare as ts
 import yaml
-
+import schedule
+from threading import Thread
 from digging_utils import *
 from crawler import *
 import status_code
+
+# address of database manager
+db_addr = 'http://db.local/'
 
 
 # todo: complete saver function
 # Universal DB saver
 def save(df: pd.DataFrame, op_code: int):
-    # if df != None:
-    json_string = df.to_json(orient='split', force_ascii=False)
-    print(op_code, json_string)
+    """
+    index_info:
+    ["ts_code","name","market","publisher","category","base_date","base_point","list_date"]
+    ["000001.SH","上证指数","SSE","中证公司","综合指数","19901219",100.0,"19910715"]
+
+    stock_info:
+    ["ts_code","symbol","name","area","industry","market","list_date"]
+    ["688788.SH","688788","科思科技","深圳","通信设备","科创板","20201022"]
+
+    index_daily:
+    stock_daily:
+    ["ts_code","trade_date","open","high","low","close","pre_close","change","pct_chg","vol","amount"]
+    ["600187.SH","20210106",2.4,2.4,2.34,2.35,2.41,-0.06,-2.4896,122540.51,28972.52]
+
+    final_msg:
+    {'operate_code': 8, 'data': '[["000001.SH","20210106",3550.8767,3530.9072,3556.8022,3513.1262,3528.6767,22.2,0.6291,370230926.0,521799529.8000000119],["000001.SH","20210105",3528.6767,3492.1912,3528.6767,3484.7151,3502.9584,25.7183,0.7342,407995934.0,568019462.2000000477],["000001.SH","20210104",3502.9584,3474.6793,3511.6554,3457.2061,3473.0693,29.8891,0.8606,380790800.0,523367700.8000000119]]'}    """
+
+    json_string = df.to_json(orient='values', force_ascii=False)
+    route = "/set/info"
+    final_msg = {
+        "operate_code": op_code,
+        "data": json_string
+    }
+    # universal_post(final_msg, route)
+    print(op_code, json_string[:120] + "........")
+    print(json.dumps(final_msg)[:150] + ".........")
     print(df)
     print("------------------------------------------------------")
 
 
+# post with error detection and unlimited retry
+def universal_post(params, route):
+    # todo: error handler
+    while True:
+        r = requests.post(url=db_addr + route, json=params, timeout=(3, 5))
+        json_obj = json.loads(r.text)
+        if r.status_code == 200 and json_obj['error_code'] == 0 and json_obj['data'][0] is str:
+            break
+        else:
+            print(json_obj['error_message'])
+            time.sleep(2)
+    return json_obj
+
+
 # wrapper of tushare sdk, adapted for our needs
 class Tushare:
-    pro_stock = ts.pro_api('85c250f231ccbe95aa63350b365d892161ecf18810ff7b93e35fc1f4')
-    pro_index = ts.pro_api('6d2175719e5b5d27c8b7f3ae83402bbf806979bcd53ec6500808c31a')
+    pro_1 = ts.pro_api('85c250f231ccbe95aa63350b365d892161ecf18810ff7b93e35fc1f4')
+    pro_2 = ts.pro_api('6d2175719e5b5d27c8b7f3ae83402bbf806979bcd53ec6500808c31a')
+    pro_list = [pro_1, pro_2]
     op_code = status_code.OpCode()
     error_code = status_code.ErrorCode()
 
+    # cal means calendar
+    cal = {}
+
     def __init__(self):
         pd.set_option('display.max_columns', 100)
-        pd.set_option('display.max_rows', 1000)
-        pd.set_option('display.width', 500)
+        pd.set_option('display.max_rows', 10)
+        pd.set_option('display.width', 200)
 
-    # get all basic index info and save it
-    def get_basic_info(self, is_index: bool):
+    def get_trade_cal(self):
+        df = self.pro_2.trade_cal(start_date=get_year(), end_date=get_today(), fields=["cal_date", "is_open"])
+        for x in df.values.tolist():
+            self.cal[x[0]] = True if x[1] == 1 else False
+
+    # get all basic info and save it or return only tscode dataframe
+    def get_basic_info(self, is_index: bool, only_tscode: bool = False):
+        fields = ['ts_code'] if only_tscode else []
         if is_index:
-            df = self.pro_index.index_basic()
+            df = self.pro_2.index_basic(fields=fields)
             code = self.op_code.SET_INDEX_INFO
         else:
-            df = self.pro_stock.stock_basic(exchange='', list_status='L',
-                                            fields='ts_code,name,symbol,list_date,area,industry')
+            df = self.pro_1.stock_basic(fields=fields)
             code = self.op_code.SET_STOCK_INFO
-        save(df, op_code=code)
+
+        if not only_tscode:
+            save(df, op_code=code)
+        else:
+            return df
 
     # get today's index number or stock price
     def get_price_today(self, ts_code: str, is_index: bool):
         today = get_today()
-        self.get_price_daily(ts_code, today, today, is_index)
-        self.get_price_daily(ts_code, today, today, is_index)
+        if self.cal[today]:
+            self.get_price_daily(ts_code, today, today, is_index)
+            self.get_price_daily(ts_code, today, today, is_index)
+        else:
+            print(f'Today({today}) is not open.')
 
     # get the last year's index number history or stock price history
     def get_price_year(self, ts_code: str, is_index: bool):
@@ -53,33 +112,16 @@ class Tushare:
         self.get_price_daily(ts_code, year_ago, today, is_index)
         self.get_price_daily(ts_code, year_ago, today, is_index)
 
-    # todo: complete ts_code getter
-    # get index list or stock list from database
-    def get_list_from_db(self, is_index: bool):
-        if is_index:
-            return []
-        else:
-            return []
-
     # base api wrapper of tushare for index number and stock price
     def get_price_daily(self, ts_code: str, start_date: str, end_date: str, is_index: bool):
         if is_index:
-            df = self.pro_index.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+            df = self.pro_2.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
             code = self.op_code.SET_INDEX_DAILY
         else:
             # todo: replace with pro_api
             df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date=start_date, end_date=end_date)
             code = self.op_code.SET_STOCK_DAILY
         save(df, op_code=code)
-
-    # iterate the index list or stock list to get the data of specific index or stock
-    def trace_list(self, is_index: bool, only_today=True):
-        deal_list = self.get_list_from_db(is_index)
-        for ele in deal_list:
-            if only_today:
-                self.get_price_today(ele, is_index)
-            else:
-                self.get_price_year(ele, is_index)
 
 
 # universal finance data getter
@@ -89,20 +131,25 @@ class Daily:
     def __init__(self):
         pass
 
+    # get index's ts_code list or stock's ts_code list from Tushare
+    def get_tscode_list(self, is_index: bool) -> map:
+        print("getting tscode list...")
+        df = self.tu.get_basic_info(is_index, only_tscode=True)
+        return map(lambda x: x[0], json.loads(df.to_json(orient='values')))
+
     # get basic info of both index and stock
     def get_basic_info(self):
-        # return error
-        pass
+        print("request for basic info...")
+        self.tu.get_basic_info(is_index=False)
+        self.tu.get_basic_info(is_index=True)
 
-    # get today's price of both index and stock
-    def get_index_stock_today(self):
-        # return error
-        pass
-
-    # get price of both index and stock of the last 12 month
-    def get_index_stock_history(self):
-        # return error
-        pass
+    # iterate the index list or stock list to get the data of specific index or stock
+    def get_price(self, only_today=True):
+        f = self.tu.get_price_today if only_today else self.tu.get_price_year
+        for is_index in [True, False]:
+            for code in self.get_tscode_list(is_index):
+                print(f"request for price of {code}...")
+                f(code, is_index)
 
 
 # Crawler for Guba
@@ -168,7 +215,7 @@ class Xueqiu(CrawlerBase):
 
         return all_comments_dict
 
-    # get all comments of the specific article
+    # get all comments of the specific stock
     def get_comment_by_stock(self, stock_code: str):
         comment_reply_list = []
         popular_num_sum = 0
@@ -183,7 +230,7 @@ class Xueqiu(CrawlerBase):
         # scan all 100 pages of comments, the max page is 100
         for i in range(100):
             parsed_response = self.get_comment_page(stock_code, page=i + 1)
-            comment_list = self.get_comment_list(parsed_response)
+            comment_list = self.extract_comment_list(parsed_response)
             # stop if this stock has less than 100 pages
             if not comment_list:
                 return f"All {0} page(s) done".format(i)
@@ -237,12 +284,18 @@ class Xueqiu(CrawlerBase):
         parsed_response = self.get_parsed_json_response(url, headers=reply_headers)
         return parsed_response
 
-    def get_comment_list(self, parsed_response: dict) -> list:
+    # return a list which contains all comment items
+    def extract_comment_list(self, parsed_response: dict) -> list:
         return parsed_response['list']
 
-    # todo: deal with html label
+    # return the exact text of the given comment
     def extract_comment_text(self, comment_item):
-        return comment_item['text']
+        text = comment_item['text']
+        a_text = ','.join(map(lambda x: x[0], self.extract_label_a(text)))
+        p_text = ','.join(self.extract_label_p(text))
+        img_text = ','.join(self.extract_label_img(text))
+
+        return p_text + a_text + img_text
 
     # add view_count, reply_count and retweet_count of one page as the popular number
     def extract_popular_number_of_one_comment(self, comment_item):
@@ -287,47 +340,93 @@ class Comment:
     def __init__(self):
         pass
 
-    # get all comment today from both Guba and Xueqiu
-    def get_comment_today(self):
-        self.xueqiu.start(only_today=True)
+    # get all comment of today or last last 365 days from both Guba and Xueqiu
+    def get_comment(self, only_today):
+        self.xueqiu.start(only_today)
         # todo: complete guba's starter
-        self.guba.start(only_today=True)
-
-    # get all comment last 12 month from both Guba and Xueqiu
-    def get_comment_history(self):
-        self.xueqiu.start(only_today=False)
-        # todo: complete guba's starter
-        self.guba.start(only_today=False)
+        self.guba.start(only_today)
 
 
 # scheduler for all crawlers
 class Scheduler:
-    # todo: design config dict
-    config = {}
+    """
+        config Example:
+        default:
+          today_now: TRUE
+          history_now: FALSE
+          task_time:
+            - "15:10"
+            - "22:00"
+    """
 
-    def __init__(self):
-        self.set_task()
+    config = {}
+    daily = Daily()
+    comment = Comment()
+
+    class ConfigException(Exception):
+        pass
+
+    class TestDone(Exception):
+        pass
+
+    def __init__(self, arguments):
+        self.set_task(arguments)
 
     # read config file and initialize it
-    def set_task(self):
+    def set_task(self, arguments):
         with open("config.yaml") as config_file:
-            self.config = yaml.load(config_file.read())
+            self.config = yaml.safe_load(config_file)
+        if 'default' not in self.config:
+            raise self.ConfigException("default configuration not found!")
+        self.config = self.config[arguments] if arguments in self.config else self.config['default']
+
+        global db_addr
+        db_addr = self.config['db_addr']
 
     # main entrance of Scheduler, start from here
     def start(self):
-        pass
+        print("Scheduler started.")
+
+        if self.config['history_now']:
+            self.job(False)
+        if self.config['today_now']:
+            self.job(True)
+        for ele in self.config['task_time']:
+            schedule.every(1).day.at(ele).do(job_func=self.job())
+
+        while True:
+            schedule.run_pending()
+            time.sleep(60)
+
+    def job(self, only_today: bool = None):
+        print("doing job...")
+        if only_today is None:
+            for only in [False, True]:
+                self.daily.get_basic_info()
+                self.daily.get_price(only)
+                self.comment.get_comment(only)
+        else:
+            self.daily.get_basic_info()
+            self.daily.get_price(only_today)
+            self.comment.get_comment(only_today)
+            raise self.TestDone
 
 
 if __name__ == '__main__':
-    pass
-    # scheduler = Scheduler()
-    # try:
-    #     scheduler.start()
-    # except Exception as e:
-    #     print(e)
-    # finally:
-    #     print("done")
+    sys_arguments = sys.argv[1] if len(sys.argv) >= 2 else None
+    if sys_arguments is None:
+        print('Configuration not set, trying to use default configuration...')
+    scheduler = Scheduler(sys_arguments)
+    try:
+        scheduler.start()
+    except Exception as e:
+        print(e)
+    finally:
+        print("END at {0}".format(get_time()))
 
+    # pass
     # tu = Tushare()
     # tu.get_basic_info(is_index=True)
-    # tu.get_price_daily('399300.SZ', start_date='20210101', end_date='20210106', is_index=True)
+    # tu.get_basic_info(is_index=False)
+    # tu.get_price_daily('600187.SH', start_date='20210101', end_date='20210106', is_index=False)
+    # tu.get_price_daily('000001.SH', start_date='20210101', end_date='20210106', is_index=True)

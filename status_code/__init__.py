@@ -14,7 +14,7 @@ class OpCode(_const):
     def __init__(self):
         self.GET_ALL_COMMENT = 1
         self.GET_TODAY_COMMENT = 2
-        self.SET_PUBLIC_OPNION = 3
+        self.SET_PUBLIC_OPINION = 3
         self.SET_INCREASE_RATE = 4
         self.SET_INDEX_PREDICTION = 5
         self.SET_INDEX_INFO = 6
@@ -30,12 +30,17 @@ class OpCode(_const):
         self.GET_INDUSTRY_INDEX_PREDICTION = 16
         self.GET_MARKET_INDEX_PREDICTION = 17
         self.GET_STOCK_PREDICTION = 18
-        self.GET_FEATURE = 19
-        self.GET_STOCK = 20
-        self.GET_STOCK_SELECTION = 21
-        self.GET_STOCK_INFO = 22
-        self.SET_COLLECTION = 23
-        self.DELETE_COLLECTION = 24
+        self.GET_STOCK_FEATURE_HISTORY = 19
+        self.GET_INDEX_FEATURE_HISTORY = 20
+        self.GET_INDEX_FEATURE_TODAY = 21
+        self.GET_STOCK_FEATURE_TODAY = 22
+        self.SEARCH = 23
+        self.FILTER = 24
+        self.GET_STOCK_INFO = 25
+        self.SET_COLLECTION = 26
+        self.DELETE_COLLECTION = 27
+        self.GET_CATEGORY_BY_CODE = 28
+        self.GET_INFO_BY_CATEGORY = 29
 
 
 class ErrorCode(_const):
@@ -48,4 +53,17 @@ class ErrorCode(_const):
         self.OPCODE_NOT_EXIST = 5
         self.DB_ERROR = 6
         self.INTERNAL_ERROR = 7
-        self.ITERATE_EN = 8
+        self.ITERATE_END = 8
+        self.COMMENT_NOT_UPDATED = 9
+        self.error_msg = [
+            'success',
+            'error in JSON parsing',
+            'parameter cannot be empty',
+            'illegal parameter',
+            'opcode not match',
+            'opcode not exist',
+            'database connection failed',
+            'system internal error',
+            'iterate ended',
+            'Comments not updated today'
+        ]

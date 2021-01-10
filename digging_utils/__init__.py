@@ -3,6 +3,11 @@
 import datetime
 
 
+# get exact time string
+def get_time():
+    return datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+
+
 # get the date string of today
 def get_today():
     return datetime.date.today().strftime('%Y%m%d')
@@ -17,3 +22,12 @@ def get_year():
 # get date string from timestamp
 def get_date_from_timestamp(timestamp):
     return datetime.datetime.utcfromtimestamp(timestamp).strftime("%Y%m%d")
+
+
+def get_today_format():
+    return datetime.date.today().strftime('%Y-%m-%d')
+
+
+def get_year_format():
+    last_year_date = datetime.date.today() - datetime.timedelta(days=365)
+    return last_year_date.strftime('%Y-%m-%d')

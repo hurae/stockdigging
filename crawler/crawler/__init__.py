@@ -12,6 +12,7 @@ class CrawlerBase:
     only_today = True
 
     def __init__(self, headers, cookies):
+        self.img_re = re.compile(r'\[(\w+)\]')
         self.session.headers.update(headers)
         self.session.cookies.update(cookies)
 
@@ -28,7 +29,7 @@ class CrawlerBase:
         if params is None:
             res = self.session.get(url, headers=headers, timeout=(3, 5))
         elif params is dict:
-            res = self.session.post(url, params, headers=headers, timeout=(3, 5))
+            res = self.session.post(url, data=params, headers=headers, timeout=(3, 5))
         else:
             raise TypeError
         # todo: error handler
@@ -46,12 +47,12 @@ class CrawlerBase:
         html_parsed = bf(html_text, "lxml")
         return html_parsed.findall(selector)
 
-    # extract all label a, and return an iterator which yield a tuple (text, href)
+    # extract all label a, and return an iterator which yield a tuple (text, href) of one label each time
     def extract_label_a(self, html_text):
         a_list = self.get_target_element('a', html_text)
         return map(lambda x: (x.text, x.attrs['href']), a_list)
 
-    # extract all label p, and return an iterator which yield all inner text
+    # extract all label p, and return an iterator which yield inner text of one label each time
     def extract_label_p(self, html_text):
         p_list = self.get_target_element('p', html_text)
         # find all str inside of a label p, and connect them with symbol ","
@@ -60,7 +61,8 @@ class CrawlerBase:
                                            ),
                    p_list)
 
-    # extract all label img, and return an iterator which yield all alt attrs
+    # extract all label img, and return an iterator which yield one alt attrs of one label each time
     def extract_label_img(self, html_text):
         img_list = self.get_target_element('img', html_text)
-        return map(lambda x: re.findall(r'\[(\w+)\]', x.attrs['alt'])[0], img_list)
+        return map(lambda x: self.img_re.findall(r'\[(\w+)\]', x.attrs['alt'])[0] if 'alt' in x.attrs else '',
+                   img_list)

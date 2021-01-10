@@ -1,0 +1,21 @@
+default:
+  today_now: TRUE
+  history_now: FALSE
+  db_addr: "192.168.1.101:8000"
+  task_time:
+    - "15:10"
+    - "22:00"
+
+test_history:
+  today_now: FALSE
+  history_now: TRUE
+  db_addr: "192.168.1.101:8000"
+  task_time:
+    -
+
+test_today:
+  today_now: TRUE
+  history_now: FALSE
+  db_addr: "192.168.1.101:8000"
+  task_time:
+    -
