@@ -4,7 +4,7 @@ import pandas as pd
 import tushare as ts
 import yaml
 import schedule
-
+from threading import Thread
 from digging_utils import *
 from crawler import *
 import status_code
@@ -18,30 +18,30 @@ db_addr = 'http://db.local/'
 def save(df: pd.DataFrame, op_code: int):
     """
     index_info:
-    {"ts_code":"000001.SH","name":"上证指数","market":"SSE","publisher":"中证公司","category":"综合指数","base_date":"19901219","base_point":100.0,"list_date":"19910715"}
+    ["ts_code","name","market","publisher","category","base_date","base_point","list_date"]
+    ["000001.SH","上证指数","SSE","中证公司","综合指数","19901219",100.0,"19910715"]
 
     stock_info:
-    {"ts_code":"689009.SH","symbol":"689009","name":"九号公司-UWD","area":"北京","industry":"专用机械","market":"CDR","list_date":"20201029"}
+    ["ts_code","symbol","name","area","industry","market","list_date"]
+    ["688788.SH","688788","科思科技","深圳","通信设备","科创板","20201022"]
 
     index_daily:
-    {"ts_code":"000001.SH","trade_date":"20210106","close":3550.8767,"open":3530.9072,"high":3556.8022,"low":3513.1262,"pre_close":3528.6767,"change":22.2,"pct_chg":0.6291,"vol":370230926.0,"amount":521799529.8000000119}
-
     stock_daily:
-    {"ts_code":"600187.SH","trade_date":"20210106","open":2.4,"high":2.4,"low":2.34,"close":2.35,"pre_close":2.41,"change":-0.06,"pct_chg":-2.4896,"vol":122540.51,"amount":28972.52}
+    ["ts_code","trade_date","open","high","low","close","pre_close","change","pct_chg","vol","amount"]
+    ["600187.SH","20210106",2.4,2.4,2.34,2.35,2.41,-0.06,-2.4896,122540.51,28972.52]
 
     final_msg:
-    {'operate_code': 9, 'data': '[{"ts_code":"600187.SH","trade_date":"20210106","open":2.4,"high":2.4,"low":2.34,"close":2.35,"pre_close":2.41,"change":-0.06,"pct_chg":-2.4896,"vol":122540.51,"amount":28972.52},{"ts_code":"600187.SH","trade_date":"20210105","open":2.46,"high":2.46,"low":2.39,"close":2.41,"pre_close":2.47,"change":-0.06,"pct_chg":-2.4291,"vol":199402.05,"amount":48193.974},{"ts_code":"600187.SH","trade_date":"20210104","open":2.48,"high":2.5,"low":2.44,"close":2.47,"pre_close":2.5,"change":-0.03,"pct_chg":-1.2,"vol":168340.77,"amount":41672.599}]'}
-    """
+    {'operate_code': 8, 'data': '[["000001.SH","20210106",3550.8767,3530.9072,3556.8022,3513.1262,3528.6767,22.2,0.6291,370230926.0,521799529.8000000119],["000001.SH","20210105",3528.6767,3492.1912,3528.6767,3484.7151,3502.9584,25.7183,0.7342,407995934.0,568019462.2000000477],["000001.SH","20210104",3502.9584,3474.6793,3511.6554,3457.2061,3473.0693,29.8891,0.8606,380790800.0,523367700.8000000119]]'}    """
 
-    json_string = df.to_json(orient='records', force_ascii=False)
+    json_string = df.to_json(orient='values', force_ascii=False)
     route = "/set/info"
     final_msg = {
         "operate_code": op_code,
         "data": json_string
     }
-    universal_post(final_msg, route)
-    print(op_code, json_string[:120] + ".......")
-    print(final_msg)
+    # universal_post(final_msg, route)
+    print(op_code, json_string[:120] + "........")
+    print(json.dumps(final_msg)[:150] + ".........")
     print(df)
     print("------------------------------------------------------")
 
@@ -62,24 +62,33 @@ def universal_post(params, route):
 
 # wrapper of tushare sdk, adapted for our needs
 class Tushare:
-    pro_stock = ts.pro_api('85c250f231ccbe95aa63350b365d892161ecf18810ff7b93e35fc1f4')
-    pro_index = ts.pro_api('6d2175719e5b5d27c8b7f3ae83402bbf806979bcd53ec6500808c31a')
+    pro_1 = ts.pro_api('85c250f231ccbe95aa63350b365d892161ecf18810ff7b93e35fc1f4')
+    pro_2 = ts.pro_api('6d2175719e5b5d27c8b7f3ae83402bbf806979bcd53ec6500808c31a')
+    pro_list = [pro_1, pro_2]
     op_code = status_code.OpCode()
     error_code = status_code.ErrorCode()
+
+    # cal means calendar
+    cal = {}
 
     def __init__(self):
         pd.set_option('display.max_columns', 100)
         pd.set_option('display.max_rows', 10)
         pd.set_option('display.width', 200)
 
+    def get_trade_cal(self):
+        df = self.pro_2.trade_cal(start_date=get_year(), end_date=get_today(), fields=["cal_date", "is_open"])
+        for x in df.values.tolist():
+            self.cal[x[0]] = True if x[1] == 1 else False
+
     # get all basic info and save it or return only tscode dataframe
     def get_basic_info(self, is_index: bool, only_tscode: bool = False):
         fields = ['ts_code'] if only_tscode else []
         if is_index:
-            df = self.pro_index.index_basic(fields=fields)
+            df = self.pro_2.index_basic(fields=fields)
             code = self.op_code.SET_INDEX_INFO
         else:
-            df = self.pro_stock.stock_basic(fields=fields)
+            df = self.pro_1.stock_basic(fields=fields)
             code = self.op_code.SET_STOCK_INFO
 
         if not only_tscode:
@@ -90,8 +99,11 @@ class Tushare:
     # get today's index number or stock price
     def get_price_today(self, ts_code: str, is_index: bool):
         today = get_today()
-        self.get_price_daily(ts_code, today, today, is_index)
-        self.get_price_daily(ts_code, today, today, is_index)
+        if self.cal[today]:
+            self.get_price_daily(ts_code, today, today, is_index)
+            self.get_price_daily(ts_code, today, today, is_index)
+        else:
+            print(f'Today({today}) is not open.')
 
     # get the last year's index number history or stock price history
     def get_price_year(self, ts_code: str, is_index: bool):
@@ -103,7 +115,7 @@ class Tushare:
     # base api wrapper of tushare for index number and stock price
     def get_price_daily(self, ts_code: str, start_date: str, end_date: str, is_index: bool):
         if is_index:
-            df = self.pro_index.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+            df = self.pro_2.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
             code = self.op_code.SET_INDEX_DAILY
         else:
             # todo: replace with pro_api
@@ -121,11 +133,13 @@ class Daily:
 
     # get index's ts_code list or stock's ts_code list from Tushare
     def get_tscode_list(self, is_index: bool) -> map:
+        print("getting tscode list...")
         df = self.tu.get_basic_info(is_index, only_tscode=True)
         return map(lambda x: x[0], json.loads(df.to_json(orient='values')))
 
     # get basic info of both index and stock
     def get_basic_info(self):
+        print("request for basic info...")
         self.tu.get_basic_info(is_index=False)
         self.tu.get_basic_info(is_index=True)
 
@@ -134,6 +148,7 @@ class Daily:
         f = self.tu.get_price_today if only_today else self.tu.get_price_year
         for is_index in [True, False]:
             for code in self.get_tscode_list(is_index):
+                print(f"request for price of {code}...")
                 f(code, is_index)
 
 
@@ -370,6 +385,8 @@ class Scheduler:
 
     # main entrance of Scheduler, start from here
     def start(self):
+        print("Scheduler started.")
+
         if self.config['history_now']:
             self.job(False)
         if self.config['today_now']:
@@ -382,6 +399,7 @@ class Scheduler:
             time.sleep(60)
 
     def job(self, only_today: bool = None):
+        print("doing job...")
         if only_today is None:
             for only in [False, True]:
                 self.daily.get_basic_info()
@@ -409,6 +427,6 @@ if __name__ == '__main__':
     # pass
     # tu = Tushare()
     # tu.get_basic_info(is_index=True)
-    # # tu.get_basic_info(is_index=False)
-    # # tu.get_price_daily('600187.SH', start_date='20210101', end_date='20210106', is_index=False)
+    # tu.get_basic_info(is_index=False)
+    # tu.get_price_daily('600187.SH', start_date='20210101', end_date='20210106', is_index=False)
     # tu.get_price_daily('000001.SH', start_date='20210101', end_date='20210106', is_index=True)
