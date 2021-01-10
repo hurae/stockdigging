@@ -53,7 +53,7 @@ class ErrorCode(_const):
         self.OPCODE_NOT_EXIST = 5
         self.DB_ERROR = 6
         self.INTERNAL_ERROR = 7
-        self.ITERATE_EN = 8
+        self.ITERATE_END = 8
         self.COMMENT_NOT_UPDATED = 9
         self.error_msg = [
             'success',
