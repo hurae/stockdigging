@@ -88,7 +88,7 @@ class Tushare:
         return self.cal
 
     # get all basic info and save it or return only tscode dataframe
-    def get_basic_info(self, is_index: bool, only_tscode: bool = False):
+    def get_basic_info(self, is_index: bool = True, only_tscode: bool = False):
         fields = ['ts_code'] if only_tscode else []
         if is_index:
             df = self.pro_2.index_basic(fields=fields)
@@ -159,9 +159,9 @@ class CrawlerBase:
         if params is None:
             # r = self.session.get(url, headers=headers, timeout=(3, 5))
             f = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5))
-        elif params is dict:
+        elif isinstance(params, dict):
             # r = self.session.post(url, data=params, headers=headers, timeout=(3, 5))
-            f = functools.partial(self.session.get, url, data=params, headers=headers, timeout=(3, 5))
+            f = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5))
         else:
             raise TypeError
         # todo: error handler
