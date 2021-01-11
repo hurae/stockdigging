@@ -2,7 +2,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 
 from storage.operation import models
 from storage.operation.models import IndexInfo, StockInfo, IndexPoint, StockPrice, StockComment, IndexComment, \
-    StockPopular, IndexPopular, StockPopular, User, StockForecast, IndexForecast,Collection
+    StockPopular, IndexPopular, StockPopular, User, StockForecast, IndexForecast, Collection
 from digging_utils import get_year_format, get_today_format, get_yesterday
 import random, string, hashlib
 
@@ -374,10 +374,11 @@ def get_stock_feature_today(flag2):
         data = list( res[0] )
         print( data )
         return data
-    except :
+    except:
         data = [-999, -999]
         print( data )
         return data
+
 
 # get_stock_feature_today( 1 )
 
@@ -394,10 +395,11 @@ def get_index_feature_today(flag3):
         data = list( res[0] )
         print( data )
         return data
-    except :
+    except:
         data = [-999, -999]
         print( data )
         return data
+
 
 # get_index_feature_today( 1 )
 
@@ -480,50 +482,75 @@ def get_market_index_prediction():
         data.append( list( r ) )
     print( data )
     return data
+
+
 # get_market_index_prediction()
 
-# 操作码24 筛选合适的股票或指数 五个参数"market":"","publisher":"","category":"","industry":"","area"
-# def filter(market,publisher,category,industry,area):
-#     if market != "":
-#         pass
-#     elif publisher != "":
-#     res = session.execute(
-#         session.query(StockInfo.stock_code,StockForecast.forecast,IndexInfo.name,IndexForecast.forecast ).filter(
-#             StockInfo.area==area,StockInfo.industry==industry,IndexInfo.market==market,IndexInfo.publisher==publisher,
-#             IndexInfo.category == category) ).fetchall()
-#     data = []
-#     for r in res:
-#         data.append( list( r ) )
-#     print(data)
-#     return data
+# 队列-->列表
+def return_list(res):
+    data = []
+    for r in res:
+        data.append( list( r ) )
+    print( data )
+    return data
 
-# 操作码23 搜索股票或指数
-# def search(string):
-#     ans1 = session.query( IndexInfo).filter( IndexInfo.like( 'string%' ) ).all()
-#     ans2 = session.query( StockInfo ).filter( StockInfo.like( 'string%' ) ).all()
-#     data = []
-#     for r1 in ans1:
-#         data.append( list( r1 ) )
-#     for r2 in ans2:
-#         data.append( list( r2 ) )
-#     print(data)
-#     return data
-# search("3")
+
+# 操作码24 筛选合适的股票或指数 五个参数"market":"","publisher":"","category":"","industry":"","area"
+#返回名称，预测值
+def filter(market, publisher, category, industry, area):
+    if market != "":
+        res = session.execute(
+            session.query( IndexInfo.name, IndexForecast.forecast ).filter( IndexInfo.market == market) ).fetchall()
+        return_list( res )
+    elif publisher != "":
+        res = session.execute(
+            session.query( IndexInfo.name, IndexForecast.forecast ).filter(
+                IndexInfo.publisher == publisher ) ).fetchall()
+        return_list( res )
+    elif area != "":
+        res = session.execute(
+            session.query( StockInfo.stock_name, StockForecast.forecast ).filter( StockInfo.area == area ) ).fetchall()
+        return_list( res )
+    elif industry != "":
+        res = session.execute( session.query( StockInfo.stock_name, StockForecast.forecast ).filter(
+            StockInfo.industry == industry ) ).fetchall()
+        return_list( res )
+    elif category != "":
+        res = session.execute(
+            session.query( IndexInfo.name, IndexForecast.forecast ).filter(
+                IndexInfo.category == category ) ).fetchall()
+        return_list( res )
+
+# filter("","","","","深圳")
+
+# 操作码23 搜索股票或指数,还需要考虑
+def search(string):
+    ans1 = session.query( IndexInfo).filter( IndexInfo.category.like( "%string%" ) ).all()
+    ans2 = session.query( StockInfo ).filter( StockInfo.area.like( "%string%" ) ).all()
+    data = []
+    for r1 in ans1:
+        data.append( list( r1 ) )
+    for r2 in ans2:
+        data.append( list( r2 ) )
+    print(data)
+    return data
+search("深")
 
 # 操作码26 添加收藏
-def set_collection(user_id,stock_info_id):
+def set_collection(user_id, stock_info_id):
     row_obj = Collection( user_id=user_id,
                           stock_info_id=stock_info_id,
-                          collect_time=get_today_format())
+                          collect_time=get_today_format() )
     session.add( row_obj )
     session.commit()
+
+
 # set_collection(1,1)
 
-# 操作码26 删除收藏
-def delete_collection(user_id,stock_info_id):
-    row_obj = Collection( user_id=user_id,
-                          stock_info_id=stock_info_id,
-                          collect_time=get_today_format())
-    session.delete( row_obj )
+# 操作码27 删除收藏
+def delete_collection(user_id, stock_info_id):
+    res = session.query( Collection ).filter( Collection.user_id == user_id,
+                                              Collection.stock_info_id == stock_info_id ).first()
+    session.delete( res )
     session.commit()
-# set_collection(1,1)
+# delete_collection(1,1)
