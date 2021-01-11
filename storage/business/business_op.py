@@ -38,9 +38,9 @@ flag2 = 0
 # 查询指数价格的全局变量——指数tscode
 query3 = session.query( IndexInfo.ts_code ).all()
 ans3 = [ele for ele in (map( lambda item: (item[0]), query3 ))]
-print( ans3 )
 length3 = len( ans3 )
 flag3 = 0
+
 
 # operation 6 插入指数信息
 def set_index_info(ts_code, name, fullname, market, publisher, index_type, category, base_date, base_point, list_date,
@@ -108,13 +108,13 @@ def set_index_state(ts_code, trade_date, close, open, high, low):
     session.commit()
 
 
-#set_index_state('zhishu2', '2020-1-1', 1.1, 2.1, 1.0, 1.1)
+# set_index_state('zhishu2', '2020-1-1', 1.1, 2.1, 1.0, 1.1)
 
 
 # extract_stock_id:通过ts_code查询股票id
 def extract_stock_id(ts_code):
     res = session.execute( session.query( StockInfo.id ).filter( StockInfo.ts_code == ts_code ) ).fetchall()[0][0]
-    print( "通过ts_code查询到的股票id：", res )
+    # print( "通过ts_code查询到的股票id：", res )
     return res
 
 
@@ -125,8 +125,12 @@ def set_stock_state(ts_code, trade_date, open, high, low, close):
                           open=open,
                           high=high,
                           low=low,
-                          close=close )
+                          close=close,
+                          today_ave=(open + close) / 2 )
     session.add( row_obj )
+    session.query( StockPrice ).filter( StockPrice.stock_info_id == extract_stock_id( ts_code ),
+                                        StockPrice.trade_date == get_yesterday() ).update(
+        {"tom_ave": (open + close) / 2} )
     session.commit()
 
 
@@ -216,6 +220,8 @@ def get_index_today_comment(flag3):
     data = [r[0] for r in res]
     print( "第", flag3, "条数据：", data )
     return data
+
+
 # get_index_today_comment(2)
 
 # 操作码3 写入舆情指数（股票评论热度表）
@@ -299,23 +305,19 @@ def delete_user_info(id):
 # delete_user_info(3)
 
 
-
 # 操作码20 获取股票特征四元组(舆情指数，热度，今日平均，明日平均）
-def get_stock_feature_history():
-    res = session.execute( session.query( StockPopular.num, StockPopular.public_index ).filter(
-        StockInfo.ts_code == ans2[flag2],
-        StockPrice.stock_info_id == StockInfo.id,
-
-        IndexInfo.ts_code == answer1[flag1][0],
-        IndexComment.index_info_id == IndexInfo.id,
-        answer1[flag1][1] == get_today_format() ) ).fetchall()
-
-    # get_index_today_comment( flag1 ):
-    # 每个指数今日评论
-    res = session.execute( session.query( IndexComment.content ).filter(
-        IndexInfo.ts_code == answer1[flag1][0],
-        IndexComment.index_info_id == IndexInfo.id,
-        answer1[flag1][1] == get_today_format() ) ).fetchall()
+def get_stock_feature_history(flag2):
+    res = session.execute(
+        session.query( StockPopular.num, StockPopular.public_index, StockPrice.today_ave, StockPrice.tom_ave ).filter(
+            StockInfo.ts_code == ans2[flag2],
+            StockPopular.stock_info_id== StockInfo.id,
+            StockPrice.stock_info_id == StockInfo.id,
+            # get_year_format() < StockPrice.trade_date,
+            # StockPrice.trade_date < get_today_format()
+        ) ).fetchall()
+    print(res)
     data = [r[0] for r in res]
-    print( "第", flag1, "条数据：", data )
+    print( "第", flag2, "条数据：", data )
     return data
+
+get_stock_feature_history(2)
