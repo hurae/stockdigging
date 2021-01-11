@@ -24,9 +24,9 @@ def get_yesterday():
     return yesterday_date.strftime( '%Y%m%d' )
 
 
-# get date string from timestamp
+# get date string from timestamp, specially divided by 1000 for xueqiu
 def get_date_from_timestamp(timestamp):
-    return datetime.datetime.utcfromtimestamp( timestamp ).strftime( "%Y%m%d" )
+    return datetime.datetime.utcfromtimestamp( timestamp / 1000).strftime( "%Y%m%d" )
 
 
 def get_today_format():
