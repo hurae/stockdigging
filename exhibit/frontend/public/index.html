@@ -1,0 +1,21 @@
+<!-- 浏览器访问项目，最先访问的是index.html文件
+上面有一个id为app的挂载点，之后我们的Vue根实例就会挂载到该挂载点上；
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <!-- IE=edge告诉IE使用最新的引擎渲染网页，chrome=1则可以激活Chrome Frame.-->
+    <!-- X-UA-Compatible:用于指定IE8浏览器去模拟某个特定版本的IE浏览器的渲染方式以此来解决部分兼容问题-->
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <!-- favicon.ico图标是网站的缩略标志，可以显示在浏览器标签、地址栏左边和收藏夹，是展示网站个性的缩略logo标志，也可以说是网站头像-->
+    <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+    <title><%= webpackConfig.name %></title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- built files will be auto injected -->
+  </body>
+</html>

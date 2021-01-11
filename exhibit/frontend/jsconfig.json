@@ -1,0 +1,12 @@
+// 目录中存在jsconfig.json文件表示该目录是JavaScript项目的根目录。
+// jsconfig.json文件指定根文件和JavaScript语言服务提供的功能选项。
+
+{ 
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+        "@/*": ["src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}
