@@ -4,7 +4,7 @@ from storage.operation import models
 from storage.operation.models import IndexInfo, StockInfo, IndexPoint, StockPrice, StockComment, IndexComment, \
     StockPopular, IndexPopular, StockPopular, User, StockForecast, IndexForecast
 from digging_utils import get_year_format, get_today_format, get_yesterday
-import random, string
+import random, string,hashlib
 
 # if __name__ == "__main__":
 Session = sessionmaker(bind=models.engine)
@@ -255,10 +255,11 @@ def set_index_public_opinion(flag1, public_index):
 # 操作码13 建立用户信息
 def set_user_info(name, signature, favcion, password, phone, last_login):
     salting = ''.join(random.sample(string.ascii_letters + string.digits, 8))
+    new_password = hashlib.sha256(password + salting)
     row_obj = User(name=name,
                    signature=signature,
                    favcion=favcion,
-                   password=password,
+                   password=new_password,
                    phone=phone,
                    last_login=last_login,
                    salt=salting,
@@ -273,7 +274,7 @@ def set_user_info(name, signature, favcion, password, phone, last_login):
 def update_user_info(id, password):
     salt = session.execute(session.query(User.salt).filter(User.id == id)).fetchall()[0][0]
     print(salt)
-    new_password = password + salt
+    new_password = hashlib.sha256(password + salt)
     session.query(User).filter(User.id == id).update({"password": new_password})
     session.commit()
 
