@@ -45,20 +45,34 @@ flag3 = 0
 # operation 6 插入指数信息
 def set_index_info(ts_code, name, fullname, market, publisher, index_type, category, base_date, base_point, list_date,
                    weight_rule, desc, exp_date):
-    row_obj = IndexInfo(ts_code=ts_code,
-                        name=name,
-                        fullname=fullname,
-                        market=market,
-                        publisher=publisher,
-                        index_type=index_type,
-                        category=category,
-                        base_date=base_date,
-                        base_point=base_point,
-                        list_date=list_date,
-                        weight_rule=weight_rule,
-                        desc=desc,
-                        exp_date=exp_date)
-    session.add(row_obj)
+    row_obj = IndexInfo( ts_code=ts_code,
+                         name=name,
+                         fullname=fullname,
+                         market=market,
+                         publisher=publisher,
+                         index_type=index_type,
+                         category=category,
+                         base_date=base_date,
+                         base_point=base_point,
+                         list_date=list_date,
+                         weight_rule=weight_rule,
+                         desc=desc,
+                         exp_date=exp_date )
+    session.add( row_obj )
+    row_obj = IndexInfo( ts_code=ts_code,
+                         name=name,
+                         fullname=fullname,
+                         market=market,
+                         publisher=publisher,
+                         index_type=index_type,
+                         category=category,
+                         base_date=base_date,
+                         base_point=base_point,
+                         list_date=list_date,
+                         weight_rule=weight_rule,
+                         desc=desc,
+                         exp_date=exp_date )
+    session.add( row_obj )
     session.commit()
 
 
@@ -389,10 +403,10 @@ def get_index_feature_today(flag3):
 
 # 操作码4 写入股价预测增长率（股票预测结果表）
 def set_increase_rate(flag2, forecast):
-    row_obj = StockForecast(stock_info_id=extract_stock_id(ans2[flag2]),
-                            trade_date=get_today_format(),
-                            forecast=forecast)
-    session.add(row_obj)
+    row_obj = StockForecast( stock_info_id=extract_stock_id( ans2[flag2] ),
+                             trade_date=get_today_format(),
+                             forecast=forecast )
+    session.add( row_obj )
     session.commit()
 
 
@@ -400,9 +414,116 @@ def set_increase_rate(flag2, forecast):
 
 # 操作码5 写入指数分析结果（指数预测结果表）
 def set_index_prediction(flag3, forecast):
-    row_obj = IndexForecast(index_info_id=extract_index_id(ans3[flag3]),
-                            trade_date=get_today_format(),
-                            forecast=forecast)
-    session.add(row_obj)
+    row_obj = IndexForecast( index_info_id=extract_index_id( ans3[flag3] ),
+                             trade_date=get_today_format(),
+                             forecast=forecast )
+    session.add( row_obj )
     session.commit()
+
+
 # set_index_prediction(2,10.45)
+
+# 操作码18 查看个股预测结果(返回所有股票二元组：股票名称，预测结果)
+def get_stock_prediction():
+    res = session.execute(
+        session.query( StockInfo.stock_name,
+                       StockForecast.forecast ).filter( StockForecast.stock_info_id == StockInfo.id ) ).fetchall()
+    data = []
+    for r in res:
+        data.append( list( r ) )
+    print( data )
+    return data
+
+
+# get_stock_prediction()
+
+# 操作码25查看个股详细信息（股票详情+每日行情）一共有多天
+def get_stock_info(stock_code):
+    res = session.execute( session.query( StockInfo.id ).filter( StockInfo.stock_code == stock_code ) ).fetchall()[0][0]
+    ans = session.execute(
+        session.query( StockInfo, StockPrice, StockForecast ).filter( StockInfo.id == res,
+                                                                      StockPrice.stock_info_id == res,
+                                                                      StockForecast.stock_info_id == res ) ).fetchall()
+    data = [ele for ele in (
+        map( lambda item: (item[2], item[3], item[4].strftime( "%Y-%m-%d" ), item[5], item[6],
+                           item[9].strftime( "%Y-%m-%d" ), item[10], item[11], item[12], item[13], item[14], item[19]),
+             ans ))]
+    data1 = []
+    for r in data:
+        data1.append( list( r ) )
+    print( data1 )
+    return data1
+
+
+# get_stock_info( '333' )
+# 操作码16 查看行业指数预测结果 返回名字和预测结果
+def get_industry_index_prediction():
+    res = session.execute(
+        session.query( IndexInfo.name, IndexForecast.forecast ).filter(
+            IndexInfo.category == "行业指数", IndexInfo.id == IndexForecast.index_info_id ) ).fetchall()
+    data = []
+    for r in res:
+        data.append( list( r ) )
+    print( data )
+    return data
+
+
+# get_industry_index_prediction()
+
+# 操作码17 查看大盘指数预测结果
+def get_market_index_prediction():
+    res = session.execute(
+        session.query( IndexInfo.name, IndexForecast.forecast ).filter(
+            IndexInfo.category == "综合指数", IndexInfo.id == IndexForecast.index_info_id ) ).fetchall()
+    data = []
+    for r in res:
+        data.append( list( r ) )
+    print( data )
+    return data
+# get_market_index_prediction()
+
+# 操作码24 筛选合适的股票或指数 五个参数"market":"","publisher":"","category":"","industry":"","area"
+# def filter(market,publisher,category,industry,area):
+#     if market != "":
+#         pass
+#     elif publisher != "":
+#     res = session.execute(
+#         session.query(StockInfo.stock_code,StockForecast.forecast,IndexInfo.name,IndexForecast.forecast ).filter(
+#             StockInfo.area==area,StockInfo.industry==industry,IndexInfo.market==market,IndexInfo.publisher==publisher,
+#             IndexInfo.category == category) ).fetchall()
+#     data = []
+#     for r in res:
+#         data.append( list( r ) )
+#     print(data)
+#     return data
+
+# 操作码23 搜索股票或指数
+# def search(string):
+#     ans1 = session.query( IndexInfo).filter( IndexInfo.like( 'string%' ) ).all()
+#     ans2 = session.query( StockInfo ).filter( StockInfo.like( 'string%' ) ).all()
+#     data = []
+#     for r1 in ans1:
+#         data.append( list( r1 ) )
+#     for r2 in ans2:
+#         data.append( list( r2 ) )
+#     print(data)
+#     return data
+# search("3")
+
+# 操作码26 添加收藏
+def set_collection(user_id,stock_info_id):
+    row_obj = Collection( user_id=user_id,
+                          stock_info_id=stock_info_id,
+                          collect_time=get_today_format())
+    session.add( row_obj )
+    session.commit()
+# set_collection(1,1)
+
+# 操作码26 删除收藏
+def delete_collection(user_id,stock_info_id):
+    row_obj = Collection( user_id=user_id,
+                          stock_info_id=stock_info_id,
+                          collect_time=get_today_format())
+    session.delete( row_obj )
+    session.commit()
+# set_collection(1,1)
