@@ -2,8 +2,32 @@ from sqlalchemy.orm import sessionmaker, relationship
 
 from storage.operation import models
 from storage.operation.models import IndexInfo, StockInfo, IndexPoint, StockPrice, StockComment, IndexComment, \
-    StockPopular, IndexPopular
+    StockPopular, IndexPopular, StockPopular,User
 from digging_utils import get_year_format, get_today_format
+import random,string
+
+# if __name__ == "__main__":
+Session = sessionmaker( bind=models.engine )
+session = Session()
+
+# 查询股票评论的全局变量
+d = {}
+query = session.query( StockInfo.ts_code, StockComment.comment_date ).all()
+ans = [ele for ele in (map( lambda item: (item[0], item[1].strftime( "%Y-%m-%d" )), query ))]
+answer = d.fromkeys( ans )
+answer = answer.keys()
+answer = list( answer )
+length = len( answer )
+flag = 0
+
+# 查询指数评论的全局变量(带1)
+query1 = session.query( IndexInfo.ts_code, IndexComment.comment_date ).all()
+ans1 = [ele for ele in (map( lambda item: (item[0], item[1].strftime( "%Y-%m-%d" )), query1 ))]
+answer1 = d.fromkeys( ans1 )
+answer1 = answer1.keys()
+answer1 = list( answer1 )
+length1 = len( answer1 )
+flag1 = 0
 
 
 # operation 6 插入指数信息
@@ -47,7 +71,7 @@ def set_stock_info(ts_code, stock_name, stock_code, list_data, area, industry):
 # extract_index_id:通过ts_code查询指数id
 def extract_index_id(ts_code):
     res = session.execute( session.query( IndexInfo.id ).filter( IndexInfo.ts_code == ts_code ) ).fetchall()[0][0]
-    print( res )
+    print( "通过ts_code查询到的指数id：", res )
     return res
 
 
@@ -72,7 +96,7 @@ def set_index_state(ts_code, trade_date, close, open, high, low):
 # extract_stock_id:通过ts_code查询股票id
 def extract_stock_id(ts_code):
     res = session.execute( session.query( StockInfo.id ).filter( StockInfo.ts_code == ts_code ) ).fetchall()[0][0]
-    print( res )
+    print( "通过ts_code查询到的股票id：", res )
     return res
 
 
@@ -107,7 +131,7 @@ def set_stock_comment(ts_code, content, comment_date, num):
 # set_stock_comment('gupiao4', 'great!','2020-1-1',12394)
 
 
-# operation 11 写入指数评论:指数评论表、指数热度表
+# operation 11 写入指数评论:指数评论表（内容、时间）、指数热度表（时间、阅读量）
 def set_index_comment(ts_code, content, comment_date, num):
     row1_obj = IndexComment( index_info_id=extract_index_id( ts_code ),
                              content=content,
@@ -122,79 +146,110 @@ def set_index_comment(ts_code, content, comment_date, num):
 
 # set_index_comment('zhishu3', 'bad!','2020-1-1',1734)
 
-# 查看对应股票的一年内所有评论
-def get_stock_history_comment(ts_code):
-    res = session.execute( session.query( StockComment.content ).filter(
-        StockInfo.ts_code == ts_code,
-        StockComment.stock_info_id == StockInfo.id,
-        get_year_format() < StockComment.comment_date,
-        StockComment.comment_date < get_today_format() ) ).fetchall()
-    print( "data:", res )
-    return res
-
-
-# get_stock_history_comment("gupiao4")
-
-# 查看对应指数的一年内所有评论
-def get_index_history_comment(ts_code):
-    res = session.execute( session.query( IndexComment.content ).filter(
-        IndexInfo.ts_code == ts_code,
-        IndexComment.index_info_id == IndexInfo.id,
-        get_year_format() < IndexComment.comment_date,
-        IndexComment.comment_date > get_today_format() ) ).fetchall()
-    print( "data:", res )
-    return res
-
-
-# get_index_today_comment("zhishu2")
-
-# 查看对应股票的今天所有评论
-def get_stock_today_comment(ts_code):
-    res = session.execute( session.query( StockComment.content ).filter(
-        StockInfo.ts_code == ts_code,
-        StockComment.stock_info_id == StockInfo.id,
-        StockComment.comment_date == get_today_format() ) ).fetchall()
-    print( "data:", res )
-    return res
-
-
-# get_stock_today_comment("gupiao4")
-
-
-# 查看对应指数的今天内所有评论
-def get_index_today_comment(ts_code):
-    res = session.execute( session.query( IndexComment.content ).filter(
-        IndexInfo.ts_code == ts_code,
-        IndexComment.index_info_id == IndexInfo.id,
-        IndexComment.comment_date == get_today_format() ) ).fetchall()
-    print( "data:", res )
-    return res
-
-
-# get_index_today_comment("zhishu2")
-
-
 # operation 1 查看历史所有评论
-# def get_all_comment():
-#     # 股票所有评论
-#     query = session.query( StockInfo.ts_code, StockComment.comment_date ).all()
-#     result = map( lambda item: (item[0], item[1].strftime( "%Y-%m-%d" )), query )
-#     for i in result:
-#         # print(i[0])
-#         res = session.execute( session.query( StockComment.content ).filter(
-#             StockInfo.ts_code == i[0],
-#             StockComment.stock_info_id == StockInfo.id,
-#             get_year_format() < i[1],
-#             i[1] < get_today_format() ) ).fetchall()
-#     print( "data:", res )
-
-    # ans = [ele for ele in (map( lambda item: (item[0], item[1].strftime( "%Y-%m-%d" )), query ))]
-    # print(ans)
-    # print( len( query ) )
+def get_stock_all_comment(flag):
+    # 每只股票每日评论
+    res = session.execute( session.query( StockComment.content ).filter(
+        StockInfo.ts_code == answer[flag][0],
+        StockComment.stock_info_id == StockInfo.id,
+        get_year_format() < answer[flag][1],
+        answer[flag][1] < get_today_format() ) ).fetchall()
+    data = [r[0] for r in res]
+    print( "第", flag, "条数据：", data )
+    return data
 
 
-# if __name__ == "__main__":
-Session = sessionmaker( bind=models.engine )
-session = Session()
+# get_stock_all_comment(16)
 
-set_stock_state("600187.SH", "20210105", 2.46, 2.46, 2.39, 2.41)
+def get_index_all_comment(flag1):
+    # 每个指数每日评论
+    res = session.execute( session.query( IndexComment.content ).filter(
+        IndexInfo.ts_code == answer1[flag1][0],
+        IndexComment.index_info_id == IndexInfo.id,
+        get_year_format() < answer1[flag1][1],
+        answer1[flag1][1] < get_today_format() ) ).fetchall()
+    data = [r[0] for r in res]
+    print( "第", flag1, "条数据：", data )
+    return data
+
+
+# get_index_all_comment( 13 )
+
+# operation 2 查看今天所有评论
+def get_stock_today_comment(flag):
+    # 每只股票今日评论
+    res = session.execute( session.query( StockComment.content ).filter(
+        StockInfo.ts_code == answer[flag][0],
+        StockComment.stock_info_id == StockInfo.id,
+        answer[flag][1] == get_today_format() ) ).fetchall()
+    data = [r[0] for r in res]
+    print( "第", flag, "条数据：", data )
+    return data
+
+
+# get_stock_all_comment(16)
+
+def get_index_today_comment(flag1):
+    # 每个指数今日评论
+    res = session.execute( session.query( IndexComment.content ).filter(
+        IndexInfo.ts_code == answer1[flag1][0],
+        IndexComment.index_info_id == IndexInfo.id,
+        answer1[flag1][1] == get_today_format() ) ).fetchall()
+    data = [r[0] for r in res]
+    print( "第", flag1, "条数据：", data )
+    return data
+
+
+# 操作码3 写入舆情指数（股票评论热度表）
+def set_stock_public_opinion(flag, public_index):
+    session.query( StockPopular ).filter(
+        StockPopular.stock_info_id == extract_stock_id( answer[flag][0] ),
+        answer[flag][1] == StockPopular.comment_date ).update(
+        {"public_index": public_index} )
+    session.commit()
+    print( extract_stock_id( answer[flag][0] ) )
+    print( answer[flag][1] )
+
+
+# set_stock_public_opinion( 16, 3.4 )
+
+def set_index_public_opinion(flag1, public_index):
+    session.query( IndexPopular ).filter(
+        IndexPopular.index_info_id == extract_index_id( answer1[flag1][0] ),
+        answer1[flag1][1] == IndexPopular.comment_date ).update(
+        {"public_index": public_index} )
+    session.commit()
+    print( extract_index_id( answer1[flag1][0] ) )
+    print( answer1[flag1][1] )
+
+
+# set_index_public_opinion( 13, 3.4 )
+
+# 操作码20 获取股票特征四元组(舆情指数，热度，今日平均，明日平均）
+#def get_stock_feature_history():
+
+
+# 操作码13 建立用户信息
+def set_user_info(name,signature,favcion,password,phone,last_login):
+    salting=''.join(random.sample(string.ascii_letters + string.digits, 8))
+    row_obj=User(name=name,
+                 signature=signature,
+                 favcion=favcion,
+                 password=password,
+                 phone=phone,
+                 last_login=last_login,
+                 salt = salting)
+
+    session.add( row_obj )
+    session.commit()
+
+# set_user_info('小明','ming',34,'okkkkkk','1736299','19980809')
+# 操作码14 修改用户密码 UPDATE_USER_INFO
+def update_user_info(id,password):
+    salt = session.execute( session.query( User.salt ).filter( User.id == id ) ).fetchall()[0][0]
+    print(salt)
+    new_password=password+salt
+    session.query( User ).filter(User.id==id).update( {"password": new_password} )
+    session.commit()
+
+# update_user_info(2,'mima')
