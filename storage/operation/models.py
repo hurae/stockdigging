@@ -105,6 +105,8 @@ class IndexPoint( Base ):
     open = Column( Float( 255 ) )
     high = Column( Float( 255 ) )
     low = Column( Float( 255 ) )
+    today_ave = Column( Float( 255 ) )
+    tom_ave = Column( Float( 255 ) )
     # 设置外键关系,格式：从表变量名=relationship（“对应的主表类名”，back_populates="对应主表的设置的变量名"）
     # 主表的对应关系反之
     index_infos = relationship( "IndexInfo", back_populates="index_points" )
@@ -158,6 +160,8 @@ class StockPrice( Base ):
     high = Column( Float( 255 ) )
     low = Column( Float( 255 ) )
     close = Column( Float( 255 ) )
+    today_ave = Column( Float( 255 ) )
+    tom_ave = Column( Float( 255 ) )
     stock_infos = relationship( "StockInfo", back_populates="stock_prices" )
 
 

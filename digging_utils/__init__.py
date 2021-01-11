@@ -19,6 +19,11 @@ def get_year():
     return last_year_date.strftime('%Y%m%d')
 
 
+def get_yesterday(trade_date):
+    yesterday_date = datetime.datetime.strptime(trade_date, '%Y-%m-%d') - datetime.timedelta(days=1)
+    return yesterday_date.strftime('%Y%m%d')
+
+
 # get date string from timestamp
 def get_date_from_timestamp(timestamp):
     return datetime.datetime.utcfromtimestamp(timestamp).strftime("%Y%m%d")
