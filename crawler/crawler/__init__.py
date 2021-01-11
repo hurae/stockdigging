@@ -139,10 +139,12 @@ class CrawlerBase:
         self.img_re = re.compile(r'\[(\w+)\]')
         self.session.headers.update(headers)
         self.session.cookies.update(cookies)
-        self._tu = Tushare()
+        self._daily = Daily
 
+    # proxy for class Daily
     def __getattr__(self, item):
-        return self.getattr(self._tu, item)
+        if item == 'get_tscode_list':
+            return functools.partial(getattr(self._daily, item), self=self._daily)
 
     # main entrance of Xueqiu crawler
     def set_base(self, only_today):
