@@ -2,7 +2,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 
 from storage.operation import models
 from storage.operation.models import IndexInfo, StockInfo, IndexPoint, StockPrice, StockComment, IndexComment, \
-    StockPopular, IndexPopular, StockPopular, User, StockForecast, IndexForecast
+    StockPopular, IndexPopular, StockPopular, User, StockForecast, IndexForecast,Collection
 from digging_utils import get_year_format, get_today_format, get_yesterday
 import random, string, hashlib
 
