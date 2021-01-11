@@ -98,7 +98,7 @@ def main():
         error_code = get_comment(op1=op_code.GET_TODAY_COMMENT, op2=op_code.SET_PUBLIC_OPINION)
         if error_code == err_code.ITERATE_END:
             error_code = train(op3=op_code.GET_INDEX_FEATURE_HISTORY, op4=op_code.GET_INDEX_FEATURE_TODAY,
-                               op5=op_code.SET_INDEX_PREDICTION)
+                               op5=op_code.SET_INCREASE_RATE)
             if error_code == err_code.SUCCESS:
                 error_code = train(op3=op_code.GET_STOCK_FEATURE_HISTORY, op4=op_code.GET_STOCK_FEATURE_TODAY,
                                    op5=op_code.SET_INDEX_PREDICTION)
