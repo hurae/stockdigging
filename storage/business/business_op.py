@@ -2,7 +2,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 
 from storage.operation import models
 from storage.operation.models import IndexInfo, StockInfo, IndexPoint, StockPrice, StockComment, IndexComment, \
-    StockPopular, IndexPopular, StockPopular, User
+    StockPopular, IndexPopular, StockPopular, User, StockForecast, IndexForecast
 from digging_utils import get_year_format, get_today_format, get_yesterday
 import random, string
 
@@ -222,7 +222,7 @@ def get_index_today_comment(flag3):
     return data
 
 
-# get_index_today_comment(2)
+#get_index_today_comment(2)
 
 # 操作码3 写入舆情指数（股票评论热度表）
 def set_stock_public_opinion(flag, public_index):
@@ -310,14 +310,83 @@ def get_stock_feature_history(flag2):
     res = session.execute(
         session.query( StockPopular.num, StockPopular.public_index, StockPrice.today_ave, StockPrice.tom_ave ).filter(
             StockInfo.ts_code == ans2[flag2],
-            StockPopular.stock_info_id== StockInfo.id,
+            StockPopular.stock_info_id == StockInfo.id,
             StockPrice.stock_info_id == StockInfo.id,
-            # get_year_format() < StockPrice.trade_date,
-            # StockPrice.trade_date < get_today_format()
+            get_year_format() < StockPrice.trade_date,
+            StockPrice.trade_date < get_today_format()
         ) ).fetchall()
-    print(res)
-    data = [r[0] for r in res]
-    print( "第", flag2, "条数据：", data )
+    data = []
+    for r in res:
+        data.append( list( r ) )
+    print( data )
     return data
 
-get_stock_feature_history(2)
+
+# get_stock_feature_history(2)
+
+# 操作码19 获取指数特征四元组(舆情指数，热度，今日平均，明日平均）
+def get_index_feature_history(flag3):
+    res = session.execute(
+        session.query( IndexPopular.num, IndexPopular.public_index, IndexPoint.today_ave, IndexPoint.tom_ave ).filter(
+            IndexInfo.ts_code == ans3[flag3],
+            IndexPopular.index_info_id == IndexInfo.id,
+            IndexPoint.index_info_id == IndexInfo.id,
+            get_year_format() < IndexPoint.trade_date,
+            IndexPoint.trade_date < get_today_format()
+        ) ).fetchall()
+    data = []
+    for r in res:
+        data.append( list( r ) )
+    print( data )
+    return data
+
+
+# get_index_feature_history(1)
+
+# 操作码22 获取今日股票二元组（热度，舆情指数）
+def get_stock_feature_today(flag2):
+    res = session.execute(
+        session.query( StockPopular.num, StockPopular.public_index ).filter(
+            StockInfo.ts_code == ans2[flag2],
+            StockPopular.stock_info_id == StockInfo.id,
+            StockPopular.comment_date == get_today_format()
+        ) ).fetchall()
+    data = list( res[0] )
+    print( data )
+    return data
+
+
+# get_stock_feature_today( 2 )
+
+# 操作码21 获取今日指数二元组（热度，舆情指数）
+def get_index_feature_today(flag3):
+    res = session.execute(
+        session.query( IndexPopular.num, IndexPopular.public_index ).filter(
+            IndexInfo.ts_code == ans3[flag3],
+            IndexPopular.index_info_id == IndexInfo.id,
+            IndexPopular.comment_date == get_today_format()
+        ) ).fetchall()
+    data = list( res[0] )
+    print( data )
+    return data
+
+
+# get_index_feature_today( 1 )
+
+# 操作码4 写入股价预测增长率（股票预测结果表）
+def set_increase_rate(flag2,forecast):
+    row_obj = StockForecast( stock_info_id=extract_stock_id(ans2[flag2] ),
+                             trade_date=get_today_format(),
+                             forecast=forecast)
+    session.add( row_obj )
+    session.commit()
+# set_increase_rate(2,10.45)
+
+# 操作码4 写入指数分析结果（指数预测结果表）
+def set_index_prediction(flag3,forecast):
+    row_obj = IndexForecast( index_info_id=extract_index_id(ans3[flag3] ),
+                             trade_date=get_today_format(),
+                             forecast=forecast)
+    session.add( row_obj )
+    session.commit()
+# set_index_prediction(2,10.45)
