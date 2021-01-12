@@ -271,20 +271,24 @@ def set_user_info(name, signature, favcion, password, phone, last_login):
     salting = ''.join( random.sample( string.ascii_letters + string.digits, 8 ) )
     new_password = password + salting
     new_password = hashlib.sha256( new_password.encode() ).hexdigest()
-    row_obj = User( name=name,
-                    signature=signature,
-                    favcion=favcion,
-                    password=new_password,
-                    phone=phone,
-                    last_login=last_login,
-                    salt=salting,
-                    state=0 )
+    ans = session.execute( session.query( User.phone ).filter( User.phone == phone ) ).fetchall()
+    if len( ans ) != 0:
+        print( "手机号已经注册！")
+    else:
+        row_obj = User( name=name,
+                        signature=signature,
+                        favcion=favcion,
+                        password=new_password,
+                        phone=phone,
+                        last_login=last_login,
+                        salt=salting,
+                        state=0 )
 
-    session.add( row_obj )
-    session.commit()
+        session.add( row_obj )
+        session.commit()
 
 
-# set_user_info('小明','ming',34,'okkkkkk','1736299','19980809')
+set_user_info('小明','ming',34,'okkkkkk','1736299','19980809')
 # 操作码14 修改用户密码 UPDATE_USER_INFO
 def update_user_info(id, password):
     salt = session.execute( session.query( User.salt ).filter( User.id == id ) ).fetchall()[0][0]
@@ -496,56 +500,86 @@ def return_list(res):
 
 
 # 操作码24 筛选合适的股票或指数 五个参数"market":"","publisher":"","category":"","industry":"","area"
-#返回名称，预测值
+# 返回名称，预测值
 def filter(market, publisher, category, industry, area):
     if market != "":
         res = session.execute(
-            session.query( IndexInfo.name, IndexForecast.forecast ).filter( IndexInfo.market == market) ).fetchall()
-        return_list( res )
+            session.query( IndexInfo.name, IndexForecast.forecast ).filter( IndexInfo.market == market ) ).fetchall()
+        return return_list( res )
     elif publisher != "":
         res = session.execute(
             session.query( IndexInfo.name, IndexForecast.forecast ).filter(
                 IndexInfo.publisher == publisher ) ).fetchall()
-        return_list( res )
+        return return_list( res )
     elif area != "":
         res = session.execute(
             session.query( StockInfo.stock_name, StockForecast.forecast ).filter( StockInfo.area == area ) ).fetchall()
-        return_list( res )
+        return return_list( res )
     elif industry != "":
         res = session.execute( session.query( StockInfo.stock_name, StockForecast.forecast ).filter(
             StockInfo.industry == industry ) ).fetchall()
-        return_list( res )
+        return return_list( res )
     elif category != "":
         res = session.execute(
             session.query( IndexInfo.name, IndexForecast.forecast ).filter(
                 IndexInfo.category == category ) ).fetchall()
-        return_list( res )
+        return return_list( res )
+
 
 # filter("","","","","深圳")
 
-# 操作码23 搜索股票或指数,还需要考虑
+# 操作码23 搜索股票或指数 数据有重复
+# index:ts_code/name和stock:ts_code/name
+# 返回ts_code/name
 def search(string):
-    ans1 = session.query( IndexInfo).filter( IndexInfo.category.like( "%string%" ) ).all()
-    ans2 = session.query( StockInfo ).filter( StockInfo.area.like( "%string%" ) ).all()
+    res = session.execute(
+        session.query( IndexInfo.ts_code, IndexInfo.name ).filter(
+            IndexInfo.ts_code.like( "%" + string + "%" ) ) ).fetchall()
+
+    res1 = session.execute(
+        session.query( IndexInfo.ts_code, IndexInfo.name ).filter(
+            IndexInfo.name.like( "%" + string + "%" ) ) ).fetchall()
+
+    res2 = session.execute(
+        session.query( StockInfo.ts_code, StockInfo.stock_name ).filter(
+            StockInfo.ts_code.like( "%" + string + "%" ) ) ).fetchall()
+
+    res3 = session.execute(
+        session.query( StockInfo.ts_code, StockInfo.stock_name ).filter(
+            StockInfo.stock_name.like( "%" + string + "%" ) ) ).fetchall()
     data = []
-    for r1 in ans1:
-        data.append( list( r1 ) )
-    for r2 in ans2:
-        data.append( list( r2 ) )
-    print(data)
-    return data
-search("深")
+    for r in res:
+        data.append( r )
+    for r1 in res1:
+        data.append( r1 )
+    for r2 in res2:
+        data.append( r2 )
+    for r3 in res3:
+        data.append( r3 )
+    ans = [ele for ele in (map( lambda item: (item[0], item[1]), data ))]
+    answer = d.fromkeys( ans )
+    answer = answer.keys()
+    answer = list( answer )
+    print( answer )
+    return answer
+
+
+# search( "gu" )
 
 # 操作码26 添加收藏
 def set_collection(user_id, stock_info_id):
-    row_obj = Collection( user_id=user_id,
-                          stock_info_id=stock_info_id,
-                          collect_time=get_today_format() )
-    session.add( row_obj )
-    session.commit()
+    ans = session.execute(
+        session.query( Collection.user_id, Collection.stock_info_id ).filter( Collection.user_id == user_id,
+                                                                              Collection.stock_info_id == stock_info_id ) ).fetchall()
+    if len( ans ) != 0:
+        print( "收藏已存在", ans )
+    else:
+        row_obj = Collection( user_id=user_id, stock_info_id=stock_info_id, collect_time=get_today_format() )
+        session.add( row_obj )
+        session.commit()
 
 
-# set_collection(1,1)
+# set_collection(1,2)
 
 # 操作码27 删除收藏
 def delete_collection(user_id, stock_info_id):
