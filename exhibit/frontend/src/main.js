@@ -20,17 +20,6 @@ import './utils/error-log' // error log
 
 import * as filters from './filters' // global filters
 
-/**
- * If you don't want to use mock-server
- * you want to use MockJs for mock api
- * you can execute: mockXHR()
- *
- * Currently MockJs will be used in the production environment,
- * please remove it before going online ! ! !
- */
-// 入口，加载组件，初始化
-
-// mock模拟后端数据
 if (process.env.NODE_ENV === 'production') {
   const { mockXHR } = require('../mock')
   mockXHR()
@@ -41,10 +30,6 @@ Vue.use(Element, {
   // locale: enLang// 如果使用中文，无需设置，请删除
 })
 
-// register global utility filters
-// Object.keys() 方法会返回一个由给定对象的自身可枚举属性组成的数组，
-// 数组中属性名的排列顺序和使用 for...in 循环遍历该对象时返回的顺序一致
-// （两者的主要区别是 一个 for-in 循环还会枚举其原型链上的属性）。
 Object.keys(filters).forEach(key => {
   Vue.filter(key, filters[key])
 })

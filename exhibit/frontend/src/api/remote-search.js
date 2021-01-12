@@ -10,8 +10,10 @@ export function searchUser(name) {
 
 export function transactionList(query) {
   return request({
-    url: '/vue-element-admin/transaction/list',
+    url: '/search',
     method: 'get',
     params: query
   })
 }
+
+// http://192.168.1.101:8000/search
