@@ -30,8 +30,8 @@ class OpCode(_const):
         self.GET_INDUSTRY_INDEX_PREDICTION = 16
         self.GET_MARKET_INDEX_PREDICTION = 17
         self.GET_STOCK_PREDICTION = 18
-        self.GET_STOCK_FEATURE_HISTORY = 19
-        self.GET_INDEX_FEATURE_HISTORY = 20
+        self.GET_INDEX_FEATURE_HISTORY = 19
+        self.GET_STOCK_FEATURE_HISTORY = 20
         self.GET_INDEX_FEATURE_TODAY = 21
         self.GET_STOCK_FEATURE_TODAY = 22
         self.SEARCH = 23
