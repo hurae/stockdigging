@@ -109,7 +109,8 @@ class Guba(CrawlerBase):
                             popular_num += self.get_popular_num(url_item["read_num"], url_item["comment_num"])
                             print("popular_num in get_comment_by_page:", popular_num)
                             if int(url_item["comment_num"]) > 0:
-                                self.get_comment_by_article(stock_code, article_code, url_item["comment_num"], article_comment_list)
+                                self.get_comment_by_article(stock_code, article_code, url_item["comment_num"],
+                                                            article_comment_list)
                         else:
                             return popular_num
 
@@ -140,7 +141,6 @@ class Guba(CrawlerBase):
                            'Origin': 'http://guba.eastmoney.com',
                            'Referer': "http://guba.eastmoney.com/news,{stock_code},{article_code}_1.html".format(
                                stock_code=stock_code, article_code=article_code),
-                           # 'Cookie': 'intellpositionL=1215.35px; intellpositionT=3155px; em_hq_fls=js; emshistory=%5B%22002594%22%5D; st_si=26040218803665; p_origin=https%3A%2F%2Fpassport2.eastmoney.com; ct=uZn1pxsffM25qGJ_l1U4xa5ZvMAF9Vk011T_MNgYD-TZOpVR5TgzC7wfHlOZSaK6FcZDfHAY0SnPjI3wUky4f7MUk3fGBDY6hOS2LiTSm4rI9L6gXTCULXjGtKWo2rKos-uwg3Fci4nwZ8xF5tYFQayB4rMqNGCp2CfS5C5T3T0; ut=FobyicMgeV4XKdbUhrvvY717K1eq9okp8uGL9hVvpWATw-EiRMRxdZSFPpOBsk4EENdmx0vwBqSI6Pe8utc_H-_QEBgVhePSg6HwA4zPRRO0sND_2DojaG3xkswwHPi48ogAtI1z-HqC-Jd_-cavtGqGY4czbZ0lboRYlVvx5t3IBga5f_P2RFwTKBvXpk2Afv-kWwmbwi5gWw6jkDc4C_L6l90gu9u-hecBtoxvpZ3SOhRPKhmGwtq304rGmrZfABwalr2UWbxNFH5XlvZ3zXC7k1hppDSs; pi=8468346099963324%3by8468346099963324%3b%e8%82%a1%e5%8f%8b9300VP2870%3bOzkvLxQ%2fKNF98gw90n7a5%2bQrj6axZDT15m9Kje5VRKq4vOCQlgrhJBHKKQdjDH2oSnh9qc%2bUdqe8Mg5DcDp1jrKbx6kZMj2gKJIywR34deyhgD7mY1Dqj3AKwnMI2fRgUSRa515Pt0D6rneA8yt4BFyQ97xnvZNXuuh0fkof1BlpSQ7WJlvjd2cbpciB6n6KmxAJy071%3bYfh4Ay61VDAY7aNUKUsuW%2b1EPcV%2fxxoC9P41oLODUvmr95EYoTRhIML7%2fPchkYXAbnAq94gcXOKqzrbcyPNtvXeOORXWO%2f0wAOPqsEvHuWqrhbndZwp9uyxbBFVpnvj17xlIdZsHrKUIsr9P4jZqRrWva5OV9Q%3d%3d; uidal=8468346099963324%e8%82%a1%e5%8f%8b9300VP2870; HAList=a-sh-600884-%u6749%u6749%u80A1%u4EFD%2Ca-sz-300999-%u91D1%u9F99%u9C7C%2Ca-sz-002594-%u6BD4%u4E9A%u8FEA; st_asi=delete; qgqp_b_id=f42e95cc7c01c9de599ffa77107e412b; st_pvi=54870330521994; st_sp=2021-01-06%2019%3A20%3A31; st_inirUrl=https%3A%2F%2Fwww.baidu.com%2Flink; st_sn=305; st_psi=20210107184859458-117001300541-7646024734'}
                            }
         comment_data = {
             'param': 'postid={article_code}&sort=1&sorttype=1&p=1&ps={reply_count}'.format(article_code=article_code,
@@ -357,14 +357,14 @@ class Comment:
     # set public http headers and coolies
     guba = Guba(headers_public_guba, cookies_public_xueqiu)
 
-    # xueqiu = Xueqiu(headers_public_xueqiu, cookies_public_xueqiu)
+    xueqiu = Xueqiu(headers_public_xueqiu, cookies_public_xueqiu)
 
     def __init__(self):
         pass
 
     # get all comment of today or last last 365 days from both Guba and Xueqiu
     def get_comment(self, only_today):
-        # self.xueqiu.start(only_today)
+        self.xueqiu.start(only_today)
         # todo: complete guba's starter
         self.guba.start(only_today)
 
@@ -435,18 +435,16 @@ class Scheduler:
 
 
 if __name__ == '__main__':
-    comment = Comment()
-    comment.get_comment(True)
-    # sys_arguments = sys.argv[1] if len(sys.argv) >= 2 else None
-    # if sys_arguments is None:
-    #     print('Configuration not set, trying to use default configuration...')
-    # scheduler = Scheduler(sys_arguments)
-    # try:
-    #     scheduler.start()
-    # except Exception as e:
-    #     print(e)
-    # finally:
-    #     print("END at {0}".format(get_time()))
+    sys_arguments = sys.argv[1] if len(sys.argv) >= 2 else None
+    if sys_arguments is None:
+        print('Configuration not set, trying to use default configuration...')
+    scheduler = Scheduler(sys_arguments)
+    try:
+        scheduler.start()
+    except Exception as e:
+        print(e)
+    finally:
+        print("END at {0}".format(get_time()))
 
     # pass
     # tu = Tushare()
