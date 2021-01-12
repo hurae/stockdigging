@@ -76,7 +76,7 @@ class CodeUserid(Code):
 class Userinfo(BaseModel):
     name: str
     signature: str
-    favcion: str
+    favcion: bytes
     password: str
     phone: str
     last_login: str
@@ -96,7 +96,7 @@ class CodePwd(Code):
 
 
 class Search(BaseModel):
-    Search: str
+    search: str
 
 
 class CodeSearch(Code):
@@ -104,11 +104,11 @@ class CodeSearch(Code):
 
 
 class Filter(BaseModel):
-    market: str
-    publisher: str
-    category: str
-    industry: str
-    area: str
+    market: str = ""
+    publisher: str = ""
+    category: str = ""
+    industry: str = ""
+    area: str = ""
 
 
 class CodeFilter(Code):
@@ -133,13 +133,13 @@ class CodeCollection(Code):
 
 
 @app.post("/")
-def post_code(code: Code):
+async def post_code(code: Code):
     global response_json
     response = response_json
+    global flag, flag1
+    global flag2, flag3
     if code.operation_code == op_code.GET_ALL_COMMENT:
         # 1.get_all_comment()
-        global flag
-        global flag1
         if flag < length:
             data = op.get_stock_all_comment(flag)
             flag = flag + 1
@@ -164,7 +164,6 @@ def post_code(code: Code):
             return response
     elif code.operation_code == op_code.GET_TODAY_COMMENT:
         # 2.get_today_comment()
-        global flag2, flag3
         if flag2 < length2:
             data = op.get_stock_today_comment(flag2)
             flag2 = flag2 + 1
@@ -182,6 +181,8 @@ def post_code(code: Code):
         elif flag2 == length2 and flag3 == length3:
             response["error_code"] = err_code.ITERATE_END
             response["error_message"] = err_code.error_msg[err_code.ITERATE_END]
+            flag2 = 0
+            flag3 = 0
             return response
         else:
             response["error_code"] = err_code.INTERNAL_ERROR
@@ -189,34 +190,71 @@ def post_code(code: Code):
             return response
     elif code.operation_code == op_code.GET_INDUSTRY_INDEX_PREDICTION:
         # 16.get_industry_index_prediction()
-        pass
+        response["data"] = op.get_industry_index_prediction()
+        return response
     elif code.operation_code == op_code.GET_MARKET_INDEX_PREDICTION:
         # 17.get_market_index_prediction()
-        pass
+        response["data"] = op.get_market_index_prediction()
+        return response
     elif code.operation_code == op_code.GET_STOCK_PREDICTION:
         # 18.get_stock_prediction()
-        pass
+        response["data"] = op.get_stock_prediction()
+        return response
     elif code.operation_code == op_code.GET_INDEX_FEATURE_HISTORY:
         # 19.get_index_feature_history()
-        pass
+        if flag3 < length3:
+            data = op.get_index_feature_history(flag3)
+            flag3 = flag3 + 1
+            response["data"] = data
+            return response
+        elif flag3 == length3:
+            flag3 = 0
+            response["error_code"] = err_code.ITERATE_END
+            response["error_message"] = err_code.error_msg[err_code.ITERATE_END]
+            return response
+        else:
+            response["error_code"] = err_code.INTERNAL_ERROR
+            response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+            return response
     elif code.operation_code == op_code.GET_STOCK_FEATURE_HISTORY:
         # 20.get_stock_feature_history()
-        pass
+        if flag2 < length2:
+            data = op.get_stock_feature_history(flag2)
+            flag2 = flag2 + 1
+            response["data"] = data
+            return response
+        elif flag2 == length2:
+            flag2 = 0
+            response["error_code"] = err_code.ITERATE_END
+            response["error_message"] = err_code.error_msg[err_code.ITERATE_END]
+            return response
+        else:
+            response["error_code"] = err_code.INTERNAL_ERROR
+            response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+            return response
     elif code.operation_code == op_code.GET_INDEX_FEATURE_TODAY:
         # 21.get_index_feature_today()
-        pass
+        data = []
+        for i in range(length3):
+            data.append(op.get_index_feature_today(i))
+        response["data"] = data
+        return response
     elif code.operation_code == op_code.GET_STOCK_FEATURE_TODAY:
         # 22.get_stock_feature_today()
-        pass
+        data = []
+        for i in range(length2):
+            data.append(op.get_stock_feature_today(i))
+        response["data"] = data
+        return response
     else:
         # error
-        pass
-
-    return code
+        response["error_code"] = err_code.INTERNAL_ERROR
+        response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+        return response
 
 
 @app.post("/opinion")
-def post_code_opinion(code_opinion: CodeOpinion):
+async def post_code_opinion(code_opinion: CodeOpinion):
     global flag
     global flag1
     global response_json
@@ -246,7 +284,7 @@ def post_code_opinion(code_opinion: CodeOpinion):
 
 
 @app.post("/increase")
-def post_code_prediction(code_increase: CodeIncrease):
+async def post_code_prediction(code_increase: CodeIncrease):
     global length2, length3, response_json
     response = response_json
     if code_increase.operation_code == op_code.SET_INCREASE_RATE:
@@ -269,7 +307,7 @@ def post_code_prediction(code_increase: CodeIncrease):
 
 
 @app.post("/info")
-def post_code_info(code_info: CodeInfo):
+async def post_code_info(code_info: CodeInfo):
     global response_json
     response = response_json
     if code_info.operation_code == op_code.SET_INDEX_INFO:
@@ -301,7 +339,7 @@ def post_code_info(code_info: CodeInfo):
 
 
 @app.post("/comment")
-def post_code_comment(code_comment: CodeComment):
+async def post_code_comment(code_comment: CodeComment):
     global response_json
     response = response_json
     data = code_comment.data
@@ -321,7 +359,7 @@ def post_code_comment(code_comment: CodeComment):
 
 
 @app.post("/userid")
-def post_code_userid(code_userid: CodeUserid):
+async def post_code_userid(code_userid: CodeUserid):
     global response_json
     response = response_json
     data = code_userid.data
@@ -350,71 +388,104 @@ def post_code_userid(code_userid: CodeUserid):
 
 
 @app.post("/new")
-def post_code_userinfo(code_userinfo: CodeUserinfo):
+async def post_code_userinfo(code_userinfo: CodeUserinfo):
+    global response_json
+    response = response_json
+    data = code_userinfo.data
     if code_userinfo.operation_code == op_code.SET_USER_INFO:
         # 13.set_user_info()
-        pass
+        op.set_user_info(data.name, data.signature, data.favcion, data.password, data.phone, data.last_login)
+        return response
     else:
         # error
-        pass
-    return code_userinfo
+        response["error_code"] = err_code.INTERNAL_ERROR
+        response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+        return response
 
 
 @app.post("/update")
-def post_code_pwd(code_pwd: CodePwd):
+async def post_code_pwd(code_pwd: CodePwd):
+    global response_json
+    response = response_json
+    data = code_pwd.data
     if code_pwd.operation_code == op_code.UPDATE_USER_INFO:
         # 14.update_user_info()
-        pass
+        op.update_user_info(data.user_id, data.password)
+        return response
     else:
         # error
-        pass
-    return code_pwd
+        response["error_code"] = err_code.INTERNAL_ERROR
+        response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+        return response
 
 
 @app.post("/search")
-def post_code_index(code_search: CodeSearch):
+async def post_code_index(code_search: CodeSearch):
+    global response_json
+    response = response_json
     if code_search.operation_code == op_code.SEARCH:
         # 23.search()
-        pass
+        data = op.search(code_search.data.search)
+        response["data"] = data
+        return response
     else:
         # error
-        pass
-    return code_search
+        response["error_code"] = err_code.INTERNAL_ERROR
+        response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+        return response
 
 
 @app.post("/filter")
-def post_code_filter(code_filter: CodeFilter):
+async def post_code_filter(code_filter: CodeFilter):
+    global response_json
+    response = response_json
+    data = code_filter.data
     if code_filter.operation_code == op_code.FILTER:
         # 24.filter()
-        pass
+        response["data"] = op.filter(data.market, data.publisher, data.category, data.industry, data.area)
+        return response
     else:
         # error
-        pass
-    return code_filter
+        response["error_code"] = err_code.INTERNAL_ERROR
+        response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+        return response
 
 
 @app.post("/stock")
-def post_code_stock(code_stock: CodeStock):
+async def post_code_stock(code_stock: CodeStock):
+    global response_json
+    response = response_json
+    data = code_stock.data
     if code_stock.operation_code == op_code.GET_STOCK_INFO:
         # 25.get_stock_info()
-        pass
+        response["data"] = op.get_stock_info(data.stock_code)
+        return response
     else:
         # error
-        pass
-    return code_stock
+        response["error_code"] = err_code.INTERNAL_ERROR
+        response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+        return response
 
 
 @app.post("/collection")
-def post_code_collection(code_collection: CodeCollection):
+async def post_code_collection(code_collection: CodeCollection):
+    global response_json
+    response = response_json
+    print(response)
+    data = code_collection.data
     if code_collection.operation_code == op_code.SET_COLLECTION:
         # 26.set_collection()
-        pass
+        op.set_collection(data.user_id, data.stock_info_id)
+        return response
     elif code_collection.operation_code == op_code.DELETE_COLLECTION:
         # 27.delete_collection()
-        pass
+        op.delete_collection(data.user_id, data.stock_info_id)
+        return response
     else:
         # error
-        pass
+        response["error_code"] = err_code.INTERNAL_ERROR
+        response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+        return response
 
 
 uvicorn.run(app, host='127.0.0.1', port=8000)

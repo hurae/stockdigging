@@ -2,9 +2,9 @@ from sqlalchemy.orm import sessionmaker, relationship
 
 from storage.operation import models
 from storage.operation.models import IndexInfo, StockInfo, IndexPoint, StockPrice, StockComment, IndexComment, \
-    StockPopular, IndexPopular, StockPopular, User, StockForecast, IndexForecast
+    StockPopular, IndexPopular, StockPopular, User, StockForecast, IndexForecast, Collection
 from digging_utils import get_year_format, get_today_format, get_yesterday
-import random, string
+import random, string, hashlib
 
 # if __name__ == "__main__":
 Session = sessionmaker(bind=models.engine)
@@ -45,6 +45,20 @@ flag3 = 0
 # operation 6 插入指数信息
 def set_index_info(ts_code, name, fullname, market, publisher, index_type, category, base_date, base_point, list_date,
                    weight_rule, desc, exp_date):
+    row_obj = IndexInfo(ts_code=ts_code,
+                        name=name,
+                        fullname=fullname,
+                        market=market,
+                        publisher=publisher,
+                        index_type=index_type,
+                        category=category,
+                        base_date=base_date,
+                        base_point=base_point,
+                        list_date=list_date,
+                        weight_rule=weight_rule,
+                        desc=desc,
+                        exp_date=exp_date)
+    session.add(row_obj)
     row_obj = IndexInfo(ts_code=ts_code,
                         name=name,
                         fullname=fullname,
@@ -255,31 +269,39 @@ def set_index_public_opinion(flag1, public_index):
 # 操作码13 建立用户信息
 def set_user_info(name, signature, favcion, password, phone, last_login):
     salting = ''.join(random.sample(string.ascii_letters + string.digits, 8))
-    row_obj = User(name=name,
-                   signature=signature,
-                   favcion=favcion,
-                   password=password,
-                   phone=phone,
-                   last_login=last_login,
-                   salt=salting,
-                   state=0)
+    new_password = password + salting
+    new_password = hashlib.sha256(new_password.encode()).hexdigest()
+    ans = session.execute(session.query(User.phone).filter(User.phone == phone)).fetchall()
+    if len(ans) != 0:
+        print("手机号已经注册！")
+    else:
+        row_obj = User(name=name,
+                       signature=signature,
+                       favcion=favcion,
+                       password=new_password,
+                       phone=phone,
+                       last_login=last_login,
+                       salt=salting,
+                       state=0)
 
-    session.add(row_obj)
-    session.commit()
+        session.add(row_obj)
+        session.commit()
 
 
-# set_user_info('小明','ming',34,'okkkkkk','1736299','19980809')
+# set_user_info('小明', 'ming', 34, 'okkkkkk', '1736299', '19980809')
+
+
 # 操作码14 修改用户密码 UPDATE_USER_INFO
 def update_user_info(id, password):
     salt = session.execute(session.query(User.salt).filter(User.id == id)).fetchall()[0][0]
     print(salt)
     new_password = password + salt
+    new_password = hashlib.sha256(new_password.encode()).hexdigest()
     session.query(User).filter(User.id == id).update({"password": new_password})
     session.commit()
 
 
 # update_user_info(2,'mima')
-ans1 = [ele for ele in (map(lambda item: (item[0], item[1].strftime("%Y-%m-%d")), query1))]
 
 
 # 操作码12 读取用户信息
@@ -345,32 +367,43 @@ def get_index_feature_history(flag3):
 
 # get_index_feature_history(1)
 
-# 操作码22 获取今日股票二元组（热度，舆情指数）
+# 操作码22 获取今日股票二元组（热度，舆情指数） 数据库中一定要有股票的今日数据
 def get_stock_feature_today(flag2):
-    res = session.execute(
-        session.query(StockPopular.num, StockPopular.public_index).filter(
-            StockInfo.ts_code == ans2[flag2],
-            StockPopular.stock_info_id == StockInfo.id,
-            StockPopular.comment_date == get_today_format()
-        )).fetchall()
-    data = list(res[0])
-    print(data)
-    return data
+    try:
+        res = session.execute(
+            session.query(StockPopular.num, StockPopular.public_index).filter(
+                StockInfo.ts_code == ans2[flag2],
+                StockPopular.stock_info_id == StockInfo.id,
+                StockPopular.comment_date == get_today_format()
+            )).fetchall()
+        data = list(res[0])
+        print(data)
+        return data
+    except:
+        data = [-999, -999]
+        print(data)
+        return data
 
 
-# get_stock_feature_today( 2 )
+# get_stock_feature_today( 1 )
+
 
 # 操作码21 获取今日指数二元组（热度，舆情指数）
 def get_index_feature_today(flag3):
-    res = session.execute(
-        session.query(IndexPopular.num, IndexPopular.public_index).filter(
-            IndexInfo.ts_code == ans3[flag3],
-            IndexPopular.index_info_id == IndexInfo.id,
-            IndexPopular.comment_date == get_today_format()
-        )).fetchall()
-    data = list(res[0])
-    print(data)
-    return data
+    try:
+        res = session.execute(
+            session.query(IndexPopular.num, IndexPopular.public_index).filter(
+                IndexInfo.ts_code == ans3[flag3],
+                IndexPopular.index_info_id == IndexInfo.id,
+                IndexPopular.comment_date == get_today_format()
+            )).fetchall()
+        data = list(res[0])
+        print(data)
+        return data
+    except:
+        data = [-999, -999]
+        print(data)
+        return data
 
 
 # get_index_feature_today( 1 )
@@ -386,11 +419,173 @@ def set_increase_rate(flag2, forecast):
 
 # set_increase_rate(2,10.45)
 
-# 操作码4 写入指数分析结果（指数预测结果表）
+# 操作码5 写入指数分析结果（指数预测结果表）
 def set_index_prediction(flag3, forecast):
     row_obj = IndexForecast(index_info_id=extract_index_id(ans3[flag3]),
                             trade_date=get_today_format(),
                             forecast=forecast)
     session.add(row_obj)
     session.commit()
+
+
 # set_index_prediction(2,10.45)
+
+# 操作码18 查看个股预测结果(返回所有股票二元组：股票名称，预测结果)
+def get_stock_prediction():
+    res = session.execute(
+        session.query(StockInfo.stock_name,
+                      StockForecast.forecast).filter(StockForecast.stock_info_id == StockInfo.id)).fetchall()
+    data = []
+    for r in res:
+        data.append(list(r))
+    print(data)
+    return data
+
+
+# get_stock_prediction()
+
+# 操作码25查看个股详细信息（股票详情+每日行情）一共有多天
+def get_stock_info(stock_code):
+    res = session.execute(session.query(StockInfo.id).filter(StockInfo.stock_code == stock_code)).fetchall()[0][0]
+    ans = session.execute(
+        session.query(StockInfo, StockPrice, StockForecast).filter(StockInfo.id == res,
+                                                                   StockPrice.stock_info_id == res,
+                                                                   StockForecast.stock_info_id == res)).fetchall()
+    data = [ele for ele in (
+        map(lambda item: (item[2], item[3], item[4].strftime("%Y-%m-%d"), item[5], item[6],
+                          item[9].strftime("%Y-%m-%d"), item[10], item[11], item[12], item[13], item[14], item[19]),
+            ans))]
+    data1 = []
+    for r in data:
+        data1.append(list(r))
+    print(data1)
+    return data1
+
+
+# get_stock_info( '333' )
+# 操作码16 查看行业指数预测结果 返回名字和预测结果
+def get_industry_index_prediction():
+    res = session.execute(
+        session.query(IndexInfo.name, IndexForecast.forecast).filter(
+            IndexInfo.category == "行业指数", IndexInfo.id == IndexForecast.index_info_id)).fetchall()
+    data = []
+    for r in res:
+        data.append(list(r))
+    print(data)
+    return data
+
+
+# get_industry_index_prediction()
+
+# 操作码17 查看大盘指数预测结果
+def get_market_index_prediction():
+    res = session.execute(
+        session.query(IndexInfo.name, IndexForecast.forecast).filter(
+            IndexInfo.category == "综合指数", IndexInfo.id == IndexForecast.index_info_id)).fetchall()
+    data = []
+    for r in res:
+        data.append(list(r))
+    print(data)
+    return data
+
+
+# get_market_index_prediction()
+
+# 队列-->列表
+def return_list(res):
+    data = []
+    for r in res:
+        data.append(list(r))
+    print(data)
+    return data
+
+
+# 操作码24 筛选合适的股票或指数 五个参数"market":"","publisher":"","category":"","industry":"","area"
+# 返回名称，预测值
+def filter(market, publisher, category, industry, area):
+    if market != "":
+        res = session.execute(
+            session.query(IndexInfo.name, IndexForecast.forecast).filter(IndexInfo.market == market)).fetchall()
+        return return_list(res)
+    elif publisher != "":
+        res = session.execute(
+            session.query(IndexInfo.name, IndexForecast.forecast).filter(
+                IndexInfo.publisher == publisher)).fetchall()
+        return return_list(res)
+    elif area != "":
+        res = session.execute(
+            session.query(StockInfo.stock_name, StockForecast.forecast).filter(StockInfo.area == area)).fetchall()
+        return return_list(res)
+    elif industry != "":
+        res = session.execute(session.query(StockInfo.stock_name, StockForecast.forecast).filter(
+            StockInfo.industry == industry)).fetchall()
+        return return_list(res)
+    elif category != "":
+        res = session.execute(
+            session.query(IndexInfo.name, IndexForecast.forecast).filter(
+                IndexInfo.category == category)).fetchall()
+        return return_list(res)
+
+
+# filter("","","","","深圳")
+
+# 操作码23 搜索股票或指数 数据有重复
+# index:ts_code/name和stock:ts_code/name
+# 返回ts_code/name
+def search(string):
+    res = session.execute(
+        session.query(IndexInfo.ts_code, IndexInfo.name).filter(
+            IndexInfo.ts_code.like("%" + string + "%"))).fetchall()
+
+    res1 = session.execute(
+        session.query(IndexInfo.ts_code, IndexInfo.name).filter(
+            IndexInfo.name.like("%" + string + "%"))).fetchall()
+
+    res2 = session.execute(
+        session.query(StockInfo.ts_code, StockInfo.stock_name).filter(
+            StockInfo.ts_code.like("%" + string + "%"))).fetchall()
+
+    res3 = session.execute(
+        session.query(StockInfo.ts_code, StockInfo.stock_name).filter(
+            StockInfo.stock_name.like("%" + string + "%"))).fetchall()
+    data = []
+    for r in res:
+        data.append(r)
+    for r1 in res1:
+        data.append(r1)
+    for r2 in res2:
+        data.append(r2)
+    for r3 in res3:
+        data.append(r3)
+    ans = [ele for ele in (map(lambda item: (item[0], item[1]), data))]
+    answer = d.fromkeys(ans)
+    answer = answer.keys()
+    answer = list(answer)
+    print(answer)
+    return answer
+
+
+# search( "gu" )
+
+# 操作码26 添加收藏
+def set_collection(user_id, stock_info_id):
+    ans = session.execute(
+        session.query(Collection.user_id, Collection.stock_info_id).filter(Collection.user_id == user_id,
+                                                                           Collection.stock_info_id == stock_info_id)).fetchall()
+    if len(ans) != 0:
+        print("收藏已存在", ans)
+    else:
+        row_obj = Collection(user_id=user_id, stock_info_id=stock_info_id, collect_time=get_today_format())
+        session.add(row_obj)
+        session.commit()
+
+
+# set_collection(1,2)
+
+# 操作码27 删除收藏
+def delete_collection(user_id, stock_info_id):
+    res = session.query(Collection).filter(Collection.user_id == user_id,
+                                           Collection.stock_info_id == stock_info_id).first()
+    session.delete(res)
+    session.commit()
+# delete_collection(1,1)
