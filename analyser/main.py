@@ -6,7 +6,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 import status_code
 import sys
 
-storage = '127.0.0.1:111'
+storage_url = '127.0.0.1:111'
 senta = hub.Module(name="senta_lstm")  # load model
 begin = 0  # first get comment
 op_code = status_code.OpCode()
@@ -46,19 +46,22 @@ class Predict:
 # request to storage host for features and set forecast
 def train(op3, op4, op5):
     # get process result:index/stock
+    storage3 = storage_url + op_code.route(op3)
+    storage4 = storage_url + op_code.route(op4)
+    storage5 = storage_url + op_code.route(op5)
     send_3 = {"operate_code": op3}
-    response_json = requests.post(storage, data=send_3).json
+    response_json = requests.post(storage3, data=send_3).json
     all_params = pd.DataFrame()
     while response_json["error_code"] == err_code.SUCCESS:
         data = response_json["data"]
         pr = Predict(data)
         params = pr.predict()
         all_params = pd.concat([all_params, params])
-        response_json = requests.post(storage, data=send_3).json
+        response_json = requests.post(storage3, data=send_3).json
     if response_json["error_code"] == err_code.ITERATE_END:
         # get today's public index and hot num
         send_4 = {"operate_code": op4}
-        response_json = requests.post(storage, data=send_4).json
+        response_json = requests.post(storage4, data=send_4).json
         if response_json["error_code"] == err_code.SUCCESS:
             index = pd.DataFrame(data=response_json["data"], columns=['today_public_index', 'today_num'])
             index = pd.concat([all_params, index], axis=1)
@@ -66,23 +69,25 @@ def train(op3, op4, op5):
                 "today_num"] + index["Intercept"]
             # post forecast result to save
             send_5 = {"operate_code": op5, "data": index["forecast"].tolist()}
-            response_json = requests.post(storage, data=send_5).json
+            response_json = requests.post(storage5, data=send_5).json
             return response_json["error"]
     return response_json["error"]
 
 
 # request to storage host for comment and set public index
 def get_comment(op1, op2):
+    storage1 = storage_url + op_code.route(op1)
+    storage2 = storage_url + op_code.route(op2)
     send_1 = {"operate_code": op1}
-    response = requests.post(storage, data=send_1).json
+    response = requests.post(storage1, data=send_1).json
     while response["error_code"] == err_code.SUCCESS:
         data = response["data"]
         p = Processing(data)
         public_index = p.comment_sentiment()
         send_2 = {"operate_code": op2, "data": {"public_index": public_index}}
-        response = requests.post(storage, data=send_2).json
+        response = requests.post(storage2, data=send_2).json
         if response["error_code"] == err_code.SUCCESS:
-            response = requests.post(storage, data=send_1).json
+            response = requests.post(storage2, data=send_1).json
     return response["error_code"]
 
 

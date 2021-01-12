@@ -1,6 +1,7 @@
 # Base package for Crawler
 import functools
 import json
+import random
 import re
 import time
 import status_code
@@ -104,7 +105,11 @@ class Tushare:
         if only_tscode:
             df_stock = self.pro_1.stock_basic(fields=['ts_code'])
             df_index = self.pro_2.index_basic(fields=['ts_code'])
+            df_index['is_index'] = True
             df = pd.merge(df_index, df_stock, how='outer', on='ts_code')
+            for i in range(len(df['is_index'])):
+                if df['is_index'][i] != True:
+                    df.loc[i, 'is_index'] = False
             return df
 
         # is_index is only valid when only_tscode == False
@@ -180,7 +185,7 @@ class Daily:
     def get_tscode_list(self) -> map:
         print("getting tscode list...")
         df = self.tu.get_basic_info(only_tscode=True)
-        return map(lambda x: x[0], df.values.tolist())
+        return map(lambda x: (x[0], x[1]), df.values.tolist())
 
     # get basic info of both index and stock
     def get_basic_info(self):
@@ -203,7 +208,7 @@ class Daily:
 class CrawlerBase:
     session = requests.session()
     only_today = True
-    img_re = re.compile(r'\[(\w+)\]')
+    # img_re = re.compile(r'\[(\w+)\]')
 
     def __init__(self, headers, cookies):
         self.session.headers.update(headers)
@@ -227,10 +232,10 @@ class CrawlerBase:
     def get_url_content(self, url, headers, params=None):
         if params is None:
             # r = self.session.get(url, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5))
-        elif params is dict:
+            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5), allow_redirects=False)
+        elif isinstance(params, dict):
             # r = self.session.post(url, data=params, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5))
+            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5), allow_redirects=False)
         else:
             raise TypeError
         # todo: error handler
@@ -238,15 +243,16 @@ class CrawlerBase:
         while RETRY_LIMIT > 0:
             r = partial_request()
             if r.status_code == 200:
+                print(r.text)
                 return r.text
-            elif r.status_code == 404:
-                print(f'Failed with status_code {r.status_code}, url = {url}, probably this stock not exist')
+            elif r.status_code in [302, 400, 404]:
+                print(f'Failed with status_code {r.status_code}, url = {url},'
+                      f' probably this stock not exist or the comment do not have replies')
                 return None
             elif r.status_code != 200:
                 print(f'Failed with status_code {r.status_code}, url = {url}, retrying...')
-            else:
                 RETRY_LIMIT -= 1
-                time.sleep(2)
+                time.sleep(random.randint(0, 3))
 
         print(f"Failed within 10 times retry, url = {url}")
         return None
@@ -255,7 +261,7 @@ class CrawlerBase:
     def get_parsed_json_response(self, url, headers, params=None):
         decoded_text = self.get_url_content(url, headers, params)
         if decoded_text is None:
-            return {}
+            return None
         return json.loads(decoded_text)
 
     # parse the document and extract the wanted element
@@ -280,4 +286,6 @@ class CrawlerBase:
     # extract all label img, and return an iterator which yield one alt attrs of one label each time
     def extract_label_img(self, html_text):
         img_list = self.get_target_element('img', html_text)
-        return map(lambda x: self.img_re.findall(r'\[(\w+)\]', x.attrs['alt'])[0] if 'alt' in x.attrs else '', img_list)
+        # print(f"html_text: {html_text}, img_list: {img_list}")
+        img_text_map = map(lambda x: re.findall(r'\[(\w+)\]', x.attrs['alt'])[0] if 'alt' in x.attrs else '', img_list)
+        return img_text_map
