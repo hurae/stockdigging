@@ -42,13 +42,13 @@ def save(df: pd.DataFrame, op_code: int):
         return
 
     json_string = df.to_json(orient='values', force_ascii=False)
-    route = "/set/info"
+    route = status_code.OpCode.route(op_code)
     final_msg = {
         "operate_code": op_code,
         "data": json_string
     }
     final_msg_poster(final_msg, route)
-    Thread(target=final_msg_poster, args=(final_msg, route)).start()
+    # Thread(target=final_msg_poster, args=(final_msg, route)).start()
     print(op_code, json_string[:120] + "........")
     print(json.dumps(final_msg)[:150] + ".........")
     print(df)
@@ -57,14 +57,13 @@ def save(df: pd.DataFrame, op_code: int):
 
 # post with error detection and unlimited retry
 def final_msg_poster(params, route):
-    # todo: response parse
     while True:
         r = requests.post(url=db_addr + route, json=params, timeout=(3, 5))
         json_obj = json.loads(r.text)
-        if r.status_code == 200 and json_obj['error_code'] == 0 and json_obj['data'][0] is str:
+        if r.status_code == 200 and json_obj['error_code'] == 0:
             break
         else:
-            print(json_obj['error_message'])
+            print("response_error_msg:", json_obj['error_message'])
             time.sleep(2)
     return json_obj
 
@@ -243,6 +242,7 @@ class CrawlerBase:
         while RETRY_LIMIT > 0:
             r = partial_request()
             if r.status_code == 200:
+                print(f"get_url_content_preview: url={url}, status_code={r.status_code}, text={r.text[:100]}")
                 return r.text
             elif r.status_code in [302, 400, 404]:
                 print(f'Failed with status_code {r.status_code}, url = {url},'
