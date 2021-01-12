@@ -1,4 +1,6 @@
 import sys
+import traceback
+
 import yaml
 import schedule
 from crawler import *
@@ -266,9 +268,7 @@ class Scheduler:
         if 'default' not in self.config:
             raise self.ConfigException("default configuration not found!")
         self.config = self.config[arguments] if arguments in self.config else self.config['default']
-
-        global db_addr
-        db_addr = self.config['db_addr']
+        status_code.set_value('db_addr', self.config['db_addr'])
 
     # main entrance of Scheduler, start from here
     def start(self):
@@ -293,9 +293,9 @@ class Scheduler:
                 self.daily.get_price(only)
                 self.comment.get_comment(only)
         else:
+            self.comment.get_comment(only_today)
             self.daily.get_basic_info()
             self.daily.get_price(only_today)
-            self.comment.get_comment(only_today)
             raise self.TestDone
 
 
@@ -308,6 +308,7 @@ if __name__ == '__main__':
         scheduler.start()
     except Exception as e:
         print(e)
+        traceback.print_exc()
     finally:
         print(f"END at {get_time()}")
 

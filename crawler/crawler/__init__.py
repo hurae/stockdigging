@@ -12,11 +12,8 @@ from bs4 import BeautifulSoup as bf
 from threading import Thread
 import requests
 
-# address of database manager
-db_addr = 'http://db.local/'
+OpCode = status_code.OpCode()
 
-
-# todo: complete saver function
 # Universal DB saver
 def save(df: pd.DataFrame, op_code: int):
     """
@@ -42,23 +39,26 @@ def save(df: pd.DataFrame, op_code: int):
         return
 
     json_string = df.to_json(orient='values', force_ascii=False)
-    route = status_code.OpCode.route(op_code)
+    route = OpCode.route(code=op_code)
     final_msg = {
         "operate_code": op_code,
         "data": json_string
     }
-    final_msg_poster(final_msg, route)
     # Thread(target=final_msg_poster, args=(final_msg, route)).start()
     print(op_code, json_string[:120] + "........")
     print(json.dumps(final_msg)[:150] + ".........")
     print(df)
+    final_msg_poster(final_msg, route)
     print("------------------------------------------------------")
 
 
 # post with error detection and unlimited retry
 def final_msg_poster(params, route):
     while True:
-        r = requests.post(url=db_addr + route, json=params, timeout=(3, 5))
+        # db_addr is address of database manager
+        api_url = status_code.get_value('db_addr') + route
+        print("saving to api_url", api_url)
+        r = requests.post(url=api_url, json=params, timeout=(3, 5))
         json_obj = json.loads(r.text)
         if r.status_code == 200 and json_obj['error_code'] == 0:
             break
@@ -208,11 +208,40 @@ class CrawlerBase:
     session = requests.session()
     only_today = True
     # img_re = re.compile(r'\[(\w+)\]')
+    proxy = {}
+
 
     def __init__(self, headers, cookies):
         self.session.headers.update(headers)
         self.session.cookies.update(cookies)
         self._daily = Daily
+        self.get_proxy_str()
+
+    def get_proxy_str(self):
+        proxy_api = 'http://ip.ipjldl.com/index.php/api/entry?method=proxyServer.hdtiqu_api_url&packid=7&fa=1&groupid=0&fetch_key=&time=1&qty=1&port=1&format=json&ss=5&css=&dt=&pro=&city=&usertype=4'
+        while True:
+            r = requests.get(url=proxy_api)
+            if r.status_code == 200:
+                json_obj = json.loads(r.text)
+                if json_obj['success'] == 'true':
+                    proxyMeta = "http://%(host)s:%(port)s" % {
+                        "host": json_obj['data'][0]['IP'],
+                        "port": json_obj['data'][0]['Port'],
+                    }
+                    proxy = {
+                        'http': proxyMeta,
+                        'https': proxyMeta
+                    }
+                    self.proxy = proxy
+
+                    try:
+                        requests.get(url='https://www.baidu.com', proxies=self.proxy)
+                    except Exception as e:
+                        print(f"Proxy {proxyMeta} Unreachable,", e)
+                        continue
+
+                    print('socks5_proxy:', proxyMeta)
+                    return
 
     # proxy for class Daily
     def __getattr__(self, item):
@@ -231,20 +260,31 @@ class CrawlerBase:
     def get_url_content(self, url, headers, params=None):
         if params is None:
             # r = self.session.get(url, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5), allow_redirects=False)
+            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5),
+                                                allow_redirects=False)
         elif isinstance(params, dict):
             # r = self.session.post(url, data=params, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5), allow_redirects=False)
+            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5),
+                                                allow_redirects=False)
         else:
             raise TypeError
         # todo: error handler
         RETRY_LIMIT = 10
         while RETRY_LIMIT > 0:
-            r = partial_request()
+            try:
+                r = partial_request(proxies=self.proxy)
+            except Exception as e:
+                print(e)
+                self.get_proxy_str()
+                continue
+
             if r.status_code == 200:
                 print(f"get_url_content_preview: url={url}, status_code={r.status_code}, text={r.text[:100]}")
                 return r.text
-            elif r.status_code in [302, 400, 404]:
+            elif r.status_code == 302:
+                self.get_proxy_str()
+                continue
+            elif r.status_code in [400, 404]:
                 print(f'Failed with status_code {r.status_code}, url = {url},'
                       f' probably this stock not exist or the comment do not have replies')
                 return None
