@@ -232,10 +232,10 @@ class CrawlerBase:
     def get_url_content(self, url, headers, params=None):
         if params is None:
             # r = self.session.get(url, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5), allow_redirects=False)
+            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 10), allow_redirects=False)
         elif isinstance(params, dict):
             # r = self.session.post(url, data=params, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5), allow_redirects=False)
+            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 10), allow_redirects=False)
         else:
             raise TypeError
         # todo: error handler
@@ -243,7 +243,6 @@ class CrawlerBase:
         while RETRY_LIMIT > 0:
             r = partial_request()
             if r.status_code == 200:
-                print(r.text)
                 return r.text
             elif r.status_code in [302, 400, 404]:
                 print(f'Failed with status_code {r.status_code}, url = {url},'

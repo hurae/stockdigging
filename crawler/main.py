@@ -1,7 +1,10 @@
 import sys
+from time import sleep
+
 import yaml
 import schedule
 from crawler import *
+from lxml import etree
 
 
 # Crawler for Guba
@@ -10,39 +13,175 @@ class Guba(CrawlerBase):
 
     def __init__(self, headers, cookies):
         super().__init__(headers, cookies)
-        pass
 
     # main entrance for Guba crawler
     def start(self, only_today):
         self.set_base(only_today)
-        pass
+        all_comments_dict = self.get_all_comment()
 
-    # get the number of how mana people have read it
-    def get_popular_num(self, page_content):
-        pass
+    # get the number of how many people have read it
+    def get_popular_num(self, read_num, comment_num):
+        return (int(read_num) + int(comment_num)) * 2
+
+    # get the element by xpath
+    def get_target_element(self, selector, html_text):
+        html_parsed = etree.HTML(html_text)
+        return html_parsed.xpath(selector)
 
     # return a comments list which contains every article's comment of all stocks
-    def get_all_comment(self, page_content):
-        pass
+    def get_all_comment(self):
+        def f(x):
+            print(f'(ts_code, is_index): {x}')
+            stock_code = x[0][:6]
+            exchange = x[0][-2:]
+            is_index = x[1]
+            if is_index:
+                url = 'zs' + exchange.lower() + stock_code
+            else:
+                url = stock_code
+            return url
 
-    # get all comment of the specific article
-    def get_comment_by_article(self, page_content):
-        pass
+        stock_list = map(f, self.get_tscode_list())
+        all_comments_dict = {}
+        # popular_num_sum, article_comment_list = self.get_comment_by_stock("zssh000001")
+        # all_comments_dict["zssh000001"] = (popular_num_sum, article_comment_list)
+        count = 0
+        for ele in stock_list:
+            print("stock_code:", ele)
+            popular_num_sum, article_comment_list = self.get_comment_by_stock(ele)
+            all_comments_dict[ele] = (int(popular_num_sum), article_comment_list)
+            count += 1
+            print("*****count:" + str(count) + "," + ele + "," + "popular_num_sum:" + str(
+                popular_num_sum) + ",article_comment_list" + str(article_comment_list))
+        return all_comments_dict
 
     # get all comments of the specific article
     def get_comment_by_stock(self, stock_code):
-        # return str
-        pass
+        print("get_comment_by_stock")
+        popular_num = 0
+        page = 1
+        article_comment_list = []
+        if len(stock_code) > 6:
+            start_url = "http://guba.eastmoney.com/list," + str(stock_code) + ",99,f_1.html"
+        else:
+            start_url = "http://guba.eastmoney.com/list," + str(stock_code) + ",1,f_1.html"
+        print("start_url:", start_url)
+        popular_num = self.get_comment_by_page(stock_code, start_url, popular_num, article_comment_list, page)
+        print("popular_num in get_comment_by_stock:", popular_num)
+        return popular_num, article_comment_list
+
+    # control whether crawl the specific article by article_date and comment_count
+    def get_comment_by_page(self, stock_code, article_list_url, popular_num, article_comment_list, page):
+        print("get_comment_by_page")
+        page_header = {
+            'Cache-Control': 'max-age=0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+        }
+        self.session.cookies.update({})
+        html_text = self.get_url_content(article_list_url, page_header)
+        if html_text != None:
+            if "最近一年无帖子！" not in html_text:
+                print("here")
+                li_list = self.get_target_element('//*[@id="articlelistnew"]/div[@class!="dheader odd"]', html_text)
+                for index in range(len(li_list) - 2):
+                    url_item = {}
+                    url_item["read_num"] = self.get_target_element(
+                        '//*[@id="articlelistnew"]/div[@class!="dheader odd"]//span[@class="l1 a1"]/text()', html_text)[
+                        index + 1].strip()
+                    print("read_num:", url_item["read_num"])
+                    url_item["comment_num"] = self.get_target_element(
+                        '//*[@id="articlelistnew"]/div[@class!="dheader odd"]//span[@class="l2 a2"]/text()', html_text)[
+                        index + 1].strip()
+                    print("comment_num:", url_item["comment_num"])
+                    url_item["url"] = self.get_target_element(
+                        '//*[@id="articlelistnew"]/div[@class!="dheader odd"]//span[@class="l3 a3"]/a/@href',
+                        html_text)[index]
+                    print("url:", url_item["url"])
+                    if 'cjpl' in url_item["url"]:
+                        sleep(120)
+                        self.get_comment_by_stock(stock_code)
+                    else:
+                        article_code = re.findall(r'\d,(\d+).html', url_item["url"])[0]
+                        print("article_code:", article_code)
+                        article_date = self.get_article_date(stock_code, article_code)
+                        print("article_date:", article_date)
+                        if article_date >= (get_today_format() if self.only_today else get_year_format()):
+                            popular_num += self.get_popular_num(url_item["read_num"], url_item["comment_num"])
+                            print("popular_num in get_comment_by_page:", popular_num)
+                            if int(url_item["comment_num"]) > 0:
+                                self.get_comment_by_article(stock_code, article_code, url_item["comment_num"], article_comment_list)
+                        else:
+                            return popular_num
+
+                popular_num = self.get_next_page(stock_code, popular_num, article_comment_list, page)
+
+        return popular_num
 
     # get next page's post list
-    def get_next_page(self, page_content):
-        # return str
-        pass
+    def get_next_page(self, stock_code, popular_num, article_comment_list, page):
+        print("get_next_page")
+        page += 1
+        if len(stock_code) > 6:
+            next_page_url = "http://guba.eastmoney.com/list," + str(stock_code) + ",99,f_" + str(page) + ".html"
+        else:
+            next_page_url = "http://guba.eastmoney.com/list," + str(stock_code) + ",1,f_" + str(page) + ".html"
+        print(next_page_url)
+        popular_num = self.get_comment_by_page(stock_code, next_page_url, popular_num, article_comment_list, page)
+        print("popular_num in get_next_page", popular_num)
+        return popular_num
 
-    # return the next post of the post list
-    def get_next_article(self, page_content):
-        # return str
-        pass
+    # get all comment of the specific article
+    def get_comment_by_article(self, stock_code, article_code, comment_num, article_comment_list):
+        print("get_comment_by_article")
+        article_headers = {'Host': 'guba.eastmoney.com',
+                           'Accept': 'application/json, text/javascript, */*; q=0.01',
+                           'X-Requested-With': 'XMLHttpRequest',
+                           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                           'Origin': 'http://guba.eastmoney.com',
+                           'Referer': "http://guba.eastmoney.com/news,{stock_code},{article_code}_1.html".format(
+                               stock_code=stock_code, article_code=article_code),
+                           # 'Cookie': 'intellpositionL=1215.35px; intellpositionT=3155px; em_hq_fls=js; emshistory=%5B%22002594%22%5D; st_si=26040218803665; p_origin=https%3A%2F%2Fpassport2.eastmoney.com; ct=uZn1pxsffM25qGJ_l1U4xa5ZvMAF9Vk011T_MNgYD-TZOpVR5TgzC7wfHlOZSaK6FcZDfHAY0SnPjI3wUky4f7MUk3fGBDY6hOS2LiTSm4rI9L6gXTCULXjGtKWo2rKos-uwg3Fci4nwZ8xF5tYFQayB4rMqNGCp2CfS5C5T3T0; ut=FobyicMgeV4XKdbUhrvvY717K1eq9okp8uGL9hVvpWATw-EiRMRxdZSFPpOBsk4EENdmx0vwBqSI6Pe8utc_H-_QEBgVhePSg6HwA4zPRRO0sND_2DojaG3xkswwHPi48ogAtI1z-HqC-Jd_-cavtGqGY4czbZ0lboRYlVvx5t3IBga5f_P2RFwTKBvXpk2Afv-kWwmbwi5gWw6jkDc4C_L6l90gu9u-hecBtoxvpZ3SOhRPKhmGwtq304rGmrZfABwalr2UWbxNFH5XlvZ3zXC7k1hppDSs; pi=8468346099963324%3by8468346099963324%3b%e8%82%a1%e5%8f%8b9300VP2870%3bOzkvLxQ%2fKNF98gw90n7a5%2bQrj6axZDT15m9Kje5VRKq4vOCQlgrhJBHKKQdjDH2oSnh9qc%2bUdqe8Mg5DcDp1jrKbx6kZMj2gKJIywR34deyhgD7mY1Dqj3AKwnMI2fRgUSRa515Pt0D6rneA8yt4BFyQ97xnvZNXuuh0fkof1BlpSQ7WJlvjd2cbpciB6n6KmxAJy071%3bYfh4Ay61VDAY7aNUKUsuW%2b1EPcV%2fxxoC9P41oLODUvmr95EYoTRhIML7%2fPchkYXAbnAq94gcXOKqzrbcyPNtvXeOORXWO%2f0wAOPqsEvHuWqrhbndZwp9uyxbBFVpnvj17xlIdZsHrKUIsr9P4jZqRrWva5OV9Q%3d%3d; uidal=8468346099963324%e8%82%a1%e5%8f%8b9300VP2870; HAList=a-sh-600884-%u6749%u6749%u80A1%u4EFD%2Ca-sz-300999-%u91D1%u9F99%u9C7C%2Ca-sz-002594-%u6BD4%u4E9A%u8FEA; st_asi=delete; qgqp_b_id=f42e95cc7c01c9de599ffa77107e412b; st_pvi=54870330521994; st_sp=2021-01-06%2019%3A20%3A31; st_inirUrl=https%3A%2F%2Fwww.baidu.com%2Flink; st_sn=305; st_psi=20210107184859458-117001300541-7646024734'}
+                           }
+        comment_data = {
+            'param': 'postid={article_code}&sort=1&sorttype=1&p=1&ps={reply_count}'.format(article_code=article_code,
+                                                                                           reply_count=comment_num),
+            'path': 'reply/api/Reply/ArticleNewReplyList',
+            'env': '2'}
+        comment_url = "http://guba.eastmoney.com/interface/GetData.aspx"
+        comment_dict = self.get_parsed_json_response(comment_url, article_headers, comment_data)
+        if comment_dict["re"] is not None:
+            for i in range(len(comment_dict["re"])):
+                print(comment_dict["re"][i]["reply_text"])
+                article_comment_list.append(comment_dict["re"][i]["reply_text"])
+                if len(comment_dict["re"][i]["child_replys"]) <= comment_dict["re"][i]["reply_count"]:
+                    reply_id = comment_dict["re"][i]["reply_id"]
+                    child_comment_data = {
+                        'param': 'postid={article_code}&replyid={replyid}&sort=1&sorttype=1&ps={reply_count}&p=1'.format(
+                            article_code=article_code, replyid=reply_id,
+                            reply_count=comment_dict["re"][i]["reply_count"]),
+                        'path': 'reply/api/Reply/ArticleReplyDetail',
+                        'env': '2'}
+                    child_comment_dict = self.get_parsed_json_response(comment_url, article_headers, child_comment_data)
+                    if child_comment_dict["re"]["child_replys"] is not None:
+                        for j in range(len(child_comment_dict["re"]["child_replys"])):
+                            print(child_comment_dict["re"]["child_replys"][j]["reply_text"])
+                            article_comment_list.append(child_comment_dict["re"]["child_replys"][j]["reply_text"])
+
+    # get the date of the article has been writen
+    def get_article_date(self, stock_code, article_code):
+        self.session.cookies.update({})
+        print("get_article_date")
+        page_header = {
+            'Cache-Control': 'max-age=0',
+            'Upgrade-Insecure-Requests': '1',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+        }
+        article_url = "http://guba.eastmoney.com/news,{stock_code},{article_code}.html".format(stock_code=stock_code,
+                                                                                               article_code=article_code)
+        print("article_url:", article_url)
+        html_text = self.get_url_content(article_url, page_header)
+        article_date = self.get_target_element('//*[@id="zwconttb"]/div[2]/text()', html_text)
+        return re.findall(r'(\d{4}-\d{2}-\d{2})', article_date[0])[0]
 
 
 # Crawler for Xueqiu
@@ -71,6 +210,7 @@ class Xueqiu(CrawlerBase):
     # get all comments of the specific stock
     def get_comment_by_stock(self, stock_code: str):
         comment_reply_list = []
+        popular_num_sum = 0
 
         stop_status, popular_num_sum = self.trace_all_pages(stock_code, comment_reply_list)
         print(stop_status)
@@ -179,6 +319,30 @@ class Xueqiu(CrawlerBase):
 
 # universal comment getter
 class Comment:
+    headers_public_guba = {'Connection': 'keep-alive',
+                           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
+                           'Accept-Encoding': 'gzip, deflate',
+                           'Accept-Language': 'zh-CN,zh;q=0.9', }
+    cookies_public_guba = {"intellpositionL": "1524px",
+                           "intellpositionT": "2257px",
+                           "em_hq_fls": "old",
+                           "emshistory": "%5B%22%E6%8C%87%E6%95%B0%22%2C%22%E4%B8%8A%E8%AF%81%E6%8C%87%E6%95%B0%22%5D",
+                           "ct": "dkGEpaUDCnQR8xDurG5EKXZ_riKeTGUCmXAND-yMErD1YEopBD3yWnEEuS-ELPnRjxiUTjI6gBxnlDSeaRYTfNnwLKu1_tyBspAB1h6RXuAkzAV_Md3dj-m01kvN0QWWtLMkRPDEju7UgPBwx7Ihyo1gtSGHUIT-SCsiY7UjrCA",
+                           "ut": "FobyicMgeV4XKdbUhrvvY717K1eq9okpAhf16XCAGf4T2GXGsgX7jpCYU7Nc4ElS_Oqu954TBXI182qbr_y5gikcKjQzzpHg54A6kyk_E7Bz4WkwAywicSdzgxKWIIROyVmgESPBfYUB5-BNN9RfynFq6L03BDH9MBOvVj87LU_Emacsm8aP1KWFNqy8vt9Ru1a5atZWeM3WRkpZQYWEQ_OKoTcLTvAAluxrs_w2c-No51WmbNmKOAbu1VMsFXV7p0nwnkVxqe3tn_917ZQePdmITgU3b-J0",
+                           "pi": "6108395675653978%3bm6108395675653978%3b%e8%82%a1%e5%8f%8b5Deiam%3beAu54BssgjyVQ1Dl75GzPCbZDeuXCoFJNIhAaE9q5qhwT3DST1tHJHQuty9VQZQweo0gpyXhXbBYPf5tknW3rtk8aUA42IXH%2bdgmFAL1hibQHBhZF%2bLr4B%2fzKW%2fyB3YVWlL8TIBglyqpnFzfr8BWhqmVTf4XUiU0ooCYSlHGQiQbVvJVzn%2ffzfheQgenKyAgBND80%2b2q%3bwPhgCWaV5lPZ0jmAsUqacFl%2fvh%2bvJ%2b8L666Q24Le7YZ94%2bhZ%2fakvvPkIPgpKRKiWRrnUsvAOsmzPRQDw1Kvf8EtpWgeeqS2mhnN7dDTp4el7QqG%2b5%2fP4kCANFyZXax5aZyq54GPktMArCFZkNBTf7w%2frm%2bMMgw%3d%3d",
+                           "uidal": "6108395675653978%e8%82%a1%e5%8f%8b5Deiam",
+                           "sid": "139501923",
+                           "vtpst": "|",
+                           "HAList": "a-sz-300925-%u6CD5%u672C%u4FE1%u606F%2Cf-0-000001-%u4E0A%u8BC1%u6307%u6570",
+                           "st_si": "46963940521169",
+                           "st_asi": "delete",
+                           "qgqp_b_id": "c69227c5d2df8060e3f511e87cb19377",
+                           "st_pvi": "81354694049613",
+                           "st_sp": "2020-12-30%2009%3A11%3A35",
+                           "st_inirUrl": "https%3A%2F%2Fwww.eastmoney.com%2F",
+                           "st_sn": "9",
+                           "st_psi": "2021011215450469-117001301474-6947178642"}
+
     headers_public_xueqiu = {"Connection": "Keep-Alive", "DNT": "1",
                              "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)"
                                            " Chrome/87.0.4280.88 Safari/537.36",
@@ -191,15 +355,16 @@ class Comment:
                              "is_overseas": "0"}
 
     # set public http headers and coolies
-    guba = Guba({}, {})
-    xueqiu = Xueqiu(headers_public_xueqiu, cookies_public_xueqiu)
+    guba = Guba(headers_public_guba, cookies_public_xueqiu)
+
+    # xueqiu = Xueqiu(headers_public_xueqiu, cookies_public_xueqiu)
 
     def __init__(self):
         pass
 
     # get all comment of today or last last 365 days from both Guba and Xueqiu
     def get_comment(self, only_today):
-        self.xueqiu.start(only_today)
+        # self.xueqiu.start(only_today)
         # todo: complete guba's starter
         self.guba.start(only_today)
 
@@ -263,23 +428,25 @@ class Scheduler:
                 self.daily.get_price(only)
                 self.comment.get_comment(only)
         else:
-            self.comment.get_comment(only_today)
             self.daily.get_basic_info()
             self.daily.get_price(only_today)
+            self.comment.get_comment(only_today)
             raise self.TestDone
 
 
 if __name__ == '__main__':
-    sys_arguments = sys.argv[1] if len(sys.argv) >= 2 else None
-    if sys_arguments is None:
-        print('Configuration not set, trying to use default configuration...')
-    scheduler = Scheduler(sys_arguments)
-    try:
-        scheduler.start()
-    except Exception as e:
-        print(e)
-    finally:
-        print(f"END at {get_time()}")
+    comment = Comment()
+    comment.get_comment(True)
+    # sys_arguments = sys.argv[1] if len(sys.argv) >= 2 else None
+    # if sys_arguments is None:
+    #     print('Configuration not set, trying to use default configuration...')
+    # scheduler = Scheduler(sys_arguments)
+    # try:
+    #     scheduler.start()
+    # except Exception as e:
+    #     print(e)
+    # finally:
+    #     print("END at {0}".format(get_time()))
 
     # pass
     # tu = Tushare()
