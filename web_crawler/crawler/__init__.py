@@ -14,8 +14,9 @@ import requests
 
 OpCode = status_code.OpCode()
 
+
 # Universal DB saver
-def save(df: pd.DataFrame, op_code: int):
+def save(df, op_code: int):
     """
     index_info:
     ["ts_code","name","market","publisher","category","base_date","base_point","list_date"]
@@ -34,18 +35,21 @@ def save(df: pd.DataFrame, op_code: int):
     {'operate_code': 8, 'data': '[["000001.SH","20210106",3550.8767,3530.9072,3556.8022,3513.1262,3528.6767,22.2,0.6291,370230926.0,521799529.8000000119],["000001.SH","20210105",3528.6767,3492.1912,3528.6767,3484.7151,3502.9584,25.7183,0.7342,407995934.0,568019462.2000000477],["000001.SH","20210104",3502.9584,3474.6793,3511.6554,3457.2061,3473.0693,29.8891,0.8606,380790800.0,523367700.8000000119]]'}
     """
 
-    if df.empty:
-        print("Trying to saving empty, skipped.")
-        return
+    if isinstance(df, pd.DataFrame):
+        if df.empty:
+            print("Trying to saving empty, skipped.")
+            return
+        else:
+            json_data = json.loads(df.to_json(orient='records', force_ascii=False))
+    else:
+        json_data = df
 
-    json_string = df.to_json(orient='values', force_ascii=False)
     route = OpCode.route(code=op_code)
     final_msg = {
         "operate_code": op_code,
-        "data": json_string
+        "data": json_data
     }
     # Thread(target=final_msg_poster, args=(final_msg, route)).start()
-    print(op_code, json_string[:120] + "........")
     print(json.dumps(final_msg)[:150] + ".........")
     print(df)
     final_msg_poster(final_msg, route)
@@ -195,9 +199,10 @@ class Daily:
     # iterate the index list or stock list to get the data of specific index or stock
     def get_price(self, only_today=True):
         order = 0
+        tscode_list = self.get_tscode_list()
         f = self.tu.get_price_today if only_today else self.tu.get_price_year
         for is_index in [True, False]:
-            for code in self.get_tscode_list(is_index):
+            for code in tscode_list:
                 order += 1
                 print(f"order: {order}, request for price of {code}...")
                 f(code, is_index)
@@ -209,7 +214,6 @@ class CrawlerBase:
     only_today = True
     # img_re = re.compile(r'\[(\w+)\]')
     proxy = {}
-
 
     def __init__(self, headers, cookies):
         self.session.headers.update(headers)
@@ -235,7 +239,7 @@ class CrawlerBase:
                     self.proxy = proxy
 
                     try:
-                        requests.get(url='https://www.baidu.com', proxies=self.proxy)
+                        requests.get(url='https://www.baidu.com', proxies=self.proxy, timeout=(3, 5))
                     except Exception as e:
                         print(f"Proxy {proxyMeta} Unreachable,", e)
                         continue
@@ -248,7 +252,7 @@ class CrawlerBase:
         if item == 'get_tscode_list':
             return functools.partial(getattr(self._daily, item), self=self._daily)
 
-    # main entrance of Xueqiu crawler
+    # main entrance of Xueqiu web_crawler
     def set_base(self, only_today):
         self.only_today = only_today
 
@@ -279,7 +283,7 @@ class CrawlerBase:
                 continue
 
             if r.status_code == 200:
-                print(f"get_url_content_preview: url={url}, status_code={r.status_code}, text={r.text[:100]}")
+                print(f"get_url_content_preview: url={url}, status_code={r.status_code}")
                 return r.text
             elif r.status_code == 302:
                 self.get_proxy_str()
@@ -289,9 +293,11 @@ class CrawlerBase:
                       f' probably this stock not exist or the comment do not have replies')
                 return None
             elif r.status_code != 200:
+                self.get_proxy_str()
                 print(f'Failed with status_code {r.status_code}, url = {url}, retrying...')
                 RETRY_LIMIT -= 1
-                time.sleep(random.randint(0, 3))
+
+            time.sleep(random.random() * 3)
 
         print(f"Failed within 10 times retry, url = {url}")
         return None
@@ -328,3 +334,7 @@ class CrawlerBase:
         # print(f"html_text: {html_text}, img_list: {img_list}")
         img_text_map = map(lambda x: re.findall(r'\[(\w+)\]', x.attrs['alt'])[0] if 'alt' in x.attrs else '', img_list)
         return img_text_map
+
+
+def crawler():
+    return None

@@ -6,18 +6,55 @@ import schedule
 from crawler import *
 from lxml import etree
 
+from crawler import save
 
-# Crawler for Guba
+
 class Guba(CrawlerBase):
     guba_home = ""
 
     def __init__(self, headers, cookies):
         super().__init__(headers, cookies)
 
-    # main entrance for Guba crawler
+    # main entrance for Guba web_crawler
     def start(self, only_today):
         self.set_base(only_today)
-        all_comments_dict = self.get_all_comment()
+        return self.get_all_comment()
+
+    # return a comments list which contains every article's comment of all stocks
+    def get_all_comment(self):
+        def f(tscode):
+            print(f'(ts_code, is_index): {tscode}')
+            stock_code = tscode[0][:6]
+            exchange = tscode[0][-2:]
+            is_index = tscode[1]
+            if is_index:
+                code = 'zs' + exchange.lower() + stock_code
+            else:
+                code = stock_code
+            return code, tscode
+
+        index_list = map(f, filter(lambda x: x[1], self.get_tscode_list()))
+        stock_list = map(f, filter(lambda x: not x[1], self.get_tscode_list()))
+        all_index_comments_dict = {}
+        all_stock_comments_dict = {}
+        # popular_num_sum, article_comment_list = self.get_comment_by_stock("zssh000001")
+        # all_comments_dict["zssh000001"] = (popular_num_sum, article_comment_list)
+        count = 0
+
+        count = self.iter_list(all_index_comments_dict, count, index_list)
+        self.iter_list(all_stock_comments_dict, count, stock_list)
+
+        return all_index_comments_dict, all_stock_comments_dict
+
+    def iter_list(self, comments_dict, count, code_list):
+        for url_code, tscode in code_list:
+            print("stock_code:", url_code)
+            popular_num_sum, article_comment_list = self.get_comment_by_stock(url_code)
+            comments_dict[tscode] = (int(popular_num_sum), article_comment_list)
+            count += 1
+            print("*****count:" + str(count) + "," + url_code + "," + "popular_num_sum:" + str(
+                popular_num_sum) + ",article_comment_list" + str(article_comment_list))
+        return count
 
     # get the number of how many people have read it
     def get_popular_num(self, read_num, comment_num):
@@ -27,33 +64,6 @@ class Guba(CrawlerBase):
     def get_target_element(self, selector, html_text):
         html_parsed = etree.HTML(html_text)
         return html_parsed.xpath(selector)
-
-    # return a comments list which contains every article's comment of all stocks
-    def get_all_comment(self):
-        def f(x):
-            print(f'(ts_code, is_index): {x}')
-            stock_code = x[0][:6]
-            exchange = x[0][-2:]
-            is_index = x[1]
-            if is_index:
-                url = 'zs' + exchange.lower() + stock_code
-            else:
-                url = stock_code
-            return url
-
-        stock_list = map(f, self.get_tscode_list())
-        all_comments_dict = {}
-        # popular_num_sum, article_comment_list = self.get_comment_by_stock("zssh000001")
-        # all_comments_dict["zssh000001"] = (popular_num_sum, article_comment_list)
-        count = 0
-        for ele in stock_list:
-            print("stock_code:", ele)
-            popular_num_sum, article_comment_list = self.get_comment_by_stock(ele)
-            all_comments_dict[ele] = (int(popular_num_sum), article_comment_list)
-            count += 1
-            print("*****count:" + str(count) + "," + ele + "," + "popular_num_sum:" + str(
-                popular_num_sum) + ",article_comment_list" + str(article_comment_list))
-        return all_comments_dict
 
     # get all comments of the specific article
     def get_comment_by_stock(self, stock_code):
@@ -162,10 +172,13 @@ class Guba(CrawlerBase):
                         'path': 'reply/api/Reply/ArticleReplyDetail',
                         'env': '2'}
                     child_comment_dict = self.get_parsed_json_response(comment_url, article_headers, child_comment_data)
-                    if child_comment_dict["re"]["child_replys"] is not None:
+                    if child_comment_dict is not None and "re" in child_comment_dict \
+                            and "child_replys" in child_comment_dict['re'] \
+                            and child_comment_dict["re"]["child_replys"] is not None:
                         for j in range(len(child_comment_dict["re"]["child_replys"])):
-                            print(child_comment_dict["re"]["child_replys"][j]["reply_text"])
-                            article_comment_list.append(child_comment_dict["re"]["child_replys"][j]["reply_text"])
+                            reply_text = child_comment_dict["re"]["child_replys"][j]["reply_text"]
+                            print(reply_text)
+                            article_comment_list.append(reply_text)
 
     # get the date of the article has been writen
     def get_article_date(self, stock_code, article_code):
@@ -191,21 +204,33 @@ class Xueqiu(CrawlerBase):
     def __init__(self, headers, cookies):
         super().__init__(headers, cookies)
 
-    # main entrance of Xueqiu crawler
+    # main entrance of Xueqiu web_crawler
     def start(self, only_today):
         self.set_base(only_today)
         return self.get_all_comment()
 
     # return a comments "dict" which contains every article's comment of "all stocks"
     def get_all_comment(self):
-        stock_list = map(lambda x: x[0].split('.')[1] + x[0].split('.')[0], self.get_tscode_list())
-        all_comments_dict = {}
-        for ele in stock_list:
-            print(f'Crawling comment of {ele} of Xueqiu...')
-            popular_num_sum, comment_reply_list = self.get_comment_by_stock(ele)
-            all_comments_dict[ele] = (popular_num_sum, comment_reply_list)
+        index_list = map(lambda x: (x[0].split('.')[1] + x[0].split('.')[0], x[0]),
+                         filter(lambda x: x[1], self.get_tscode_list())
+                         )
+        stock_list = map(lambda x: (x[0].split('.')[1] + x[0].split('.')[0], x[0]),
+                         filter(lambda x: not x[1], self.get_tscode_list())
+                         )
+        all_index_comments_dict = {}
+        all_stock_comments_dict = {}
 
-        return all_comments_dict
+        self.iter_list(all_index_comments_dict, index_list)
+
+        self.iter_list(all_stock_comments_dict, stock_list)
+
+        return all_index_comments_dict, all_stock_comments_dict
+
+    def iter_list(self, comments_dict, code_list):
+        for url_code, tscode in code_list:
+            print(f'Crawling comment of {url_code} of Xueqiu...')
+            popular_num_sum, comment_reply_list = self.get_comment_by_stock(url_code)
+            comments_dict[tscode] = (popular_num_sum, comment_reply_list)
 
     # get all comments of the specific stock
     def get_comment_by_stock(self, stock_code: str):
@@ -385,17 +410,19 @@ class Comment:
 
     # set public http headers and coolies
     guba = Guba(headers_public_guba, cookies_public_xueqiu)
-
     xueqiu = Xueqiu(headers_public_xueqiu, cookies_public_xueqiu)
+    op_code = status_code.OpCode()
 
     def __init__(self):
         pass
 
     # get all comment of today or last last 365 days from both Guba and Xueqiu
     def get_comment(self, only_today):
-        self.xueqiu.start(only_today)
-        # todo: complete guba's starter
-        self.guba.start(only_today)
+        guba_index_comments, guba_stock_comments = self.guba.start(only_today)
+        xueqiu_index_comments, xueqiu_stock_comments = self.xueqiu.start(only_today)
+
+        save(dict(xueqiu_index_comments, **guba_index_comments), op_code=self.op_code.SET_INDEX_COMMENT)
+        save(dict(xueqiu_stock_comments, **guba_stock_comments), op_code=self.op_code.SET_STOCK_COMMENT)
 
 
 # scheduler for all crawlers
