@@ -1,6 +1,7 @@
 # Base package for Crawler
 import functools
 import json
+import random
 import re
 import time
 import status_code
@@ -239,14 +240,13 @@ class CrawlerBase:
             r = partial_request()
             if r.status_code == 200:
                 return r.text
-            elif r.status_code == 404:
+            elif r.status_code == 404 or r.status_code == 302:
                 print(f'Failed with status_code {r.status_code}, url = {url}, probably this stock not exist')
                 return None
             elif r.status_code != 200:
                 print(f'Failed with status_code {r.status_code}, url = {url}, retrying...')
-            else:
                 RETRY_LIMIT -= 1
-                time.sleep(2)
+                time.sleep(random.randint(0, 3))
 
         print(f"Failed within 10 times retry, url = {url}")
         return None
@@ -255,7 +255,7 @@ class CrawlerBase:
     def get_parsed_json_response(self, url, headers, params=None):
         decoded_text = self.get_url_content(url, headers, params)
         if decoded_text is None:
-            return {}
+            return None
         return json.loads(decoded_text)
 
     # parse the document and extract the wanted element
