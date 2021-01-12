@@ -96,7 +96,7 @@ class CodePwd(Code):
 
 
 class Search(BaseModel):
-    Search: str
+    search: str
 
 
 class CodeSearch(Code):
@@ -133,7 +133,7 @@ class CodeCollection(Code):
 
 
 @app.post("/")
-def post_code(code: Code):
+async def post_code(code: Code):
     global response_json
     response = response_json
     global flag, flag1
@@ -254,7 +254,7 @@ def post_code(code: Code):
 
 
 @app.post("/opinion")
-def post_code_opinion(code_opinion: CodeOpinion):
+async def post_code_opinion(code_opinion: CodeOpinion):
     global flag
     global flag1
     global response_json
@@ -284,7 +284,7 @@ def post_code_opinion(code_opinion: CodeOpinion):
 
 
 @app.post("/increase")
-def post_code_prediction(code_increase: CodeIncrease):
+async def post_code_prediction(code_increase: CodeIncrease):
     global length2, length3, response_json
     response = response_json
     if code_increase.operation_code == op_code.SET_INCREASE_RATE:
@@ -307,7 +307,7 @@ def post_code_prediction(code_increase: CodeIncrease):
 
 
 @app.post("/info")
-def post_code_info(code_info: CodeInfo):
+async def post_code_info(code_info: CodeInfo):
     global response_json
     response = response_json
     if code_info.operation_code == op_code.SET_INDEX_INFO:
@@ -339,7 +339,7 @@ def post_code_info(code_info: CodeInfo):
 
 
 @app.post("/comment")
-def post_code_comment(code_comment: CodeComment):
+async def post_code_comment(code_comment: CodeComment):
     global response_json
     response = response_json
     data = code_comment.data
@@ -359,7 +359,7 @@ def post_code_comment(code_comment: CodeComment):
 
 
 @app.post("/userid")
-def post_code_userid(code_userid: CodeUserid):
+async def post_code_userid(code_userid: CodeUserid):
     global response_json
     response = response_json
     data = code_userid.data
@@ -388,7 +388,7 @@ def post_code_userid(code_userid: CodeUserid):
 
 
 @app.post("/new")
-def post_code_userinfo(code_userinfo: CodeUserinfo):
+async def post_code_userinfo(code_userinfo: CodeUserinfo):
     global response_json
     response = response_json
     data = code_userinfo.data
@@ -404,7 +404,7 @@ def post_code_userinfo(code_userinfo: CodeUserinfo):
 
 
 @app.post("/update")
-def post_code_pwd(code_pwd: CodePwd):
+async def post_code_pwd(code_pwd: CodePwd):
     global response_json
     response = response_json
     data = code_pwd.data
@@ -420,18 +420,23 @@ def post_code_pwd(code_pwd: CodePwd):
 
 
 @app.post("/search")
-def post_code_index(code_search: CodeSearch):
+async def post_code_index(code_search: CodeSearch):
+    global response_json
+    response = response_json
     if code_search.operation_code == op_code.SEARCH:
         # 23.search()
-        pass
+        data = op.search(code_search.data.search)
+        response["data"] = data
+        return response
     else:
         # error
-        pass
-    return code_search
+        response["error_code"] = err_code.INTERNAL_ERROR
+        response["error_message"] = err_code.error_msg[err_code.INTERNAL_ERROR]
+        return response
 
 
 @app.post("/filter")
-def post_code_filter(code_filter: CodeFilter):
+async def post_code_filter(code_filter: CodeFilter):
     global response_json
     response = response_json
     data = code_filter.data
@@ -447,7 +452,7 @@ def post_code_filter(code_filter: CodeFilter):
 
 
 @app.post("/stock")
-def post_code_stock(code_stock: CodeStock):
+async def post_code_stock(code_stock: CodeStock):
     global response_json
     response = response_json
     data = code_stock.data
@@ -463,7 +468,7 @@ def post_code_stock(code_stock: CodeStock):
 
 
 @app.post("/collection")
-def post_code_collection(code_collection: CodeCollection):
+async def post_code_collection(code_collection: CodeCollection):
     global response_json
     response = response_json
     print(response)
