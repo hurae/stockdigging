@@ -232,10 +232,10 @@ class CrawlerBase:
     def get_url_content(self, url, headers, params=None):
         if params is None:
             # r = self.session.get(url, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5))
+            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5), allow_redirects=False)
         elif isinstance(params, dict):
             # r = self.session.post(url, data=params, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5))
+            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5), allow_redirects=False)
         else:
             raise TypeError
         # todo: error handler
