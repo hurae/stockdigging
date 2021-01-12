@@ -33,7 +33,12 @@ def save(df: pd.DataFrame, op_code: int):
     ["600187.SH","20210106",2.4,2.4,2.34,2.35,2.41,-0.06,-2.4896,122540.51,28972.52]
 
     final_msg:
-    {'operate_code': 8, 'data': '[["000001.SH","20210106",3550.8767,3530.9072,3556.8022,3513.1262,3528.6767,22.2,0.6291,370230926.0,521799529.8000000119],["000001.SH","20210105",3528.6767,3492.1912,3528.6767,3484.7151,3502.9584,25.7183,0.7342,407995934.0,568019462.2000000477],["000001.SH","20210104",3502.9584,3474.6793,3511.6554,3457.2061,3473.0693,29.8891,0.8606,380790800.0,523367700.8000000119]]'}    """
+    {'operate_code': 8, 'data': '[["000001.SH","20210106",3550.8767,3530.9072,3556.8022,3513.1262,3528.6767,22.2,0.6291,370230926.0,521799529.8000000119],["000001.SH","20210105",3528.6767,3492.1912,3528.6767,3484.7151,3502.9584,25.7183,0.7342,407995934.0,568019462.2000000477],["000001.SH","20210104",3502.9584,3474.6793,3511.6554,3457.2061,3473.0693,29.8891,0.8606,380790800.0,523367700.8000000119]]'}
+    """
+
+    if df.empty:
+        print("Trying to saving empty, skipped.")
+        return
 
     json_string = df.to_json(orient='values', force_ascii=False)
     route = "/set/info"
@@ -51,7 +56,7 @@ def save(df: pd.DataFrame, op_code: int):
 
 # post with error detection and unlimited retry
 def final_msg_poster(params, route):
-    # todo: error handler
+    # todo: response parse
     while True:
         r = requests.post(url=db_addr + route, json=params, timeout=(3, 5))
         json_obj = json.loads(r.text)
@@ -67,7 +72,14 @@ def final_msg_poster(params, route):
 class Tushare:
     pro_1 = ts.pro_api('85c250f231ccbe95aa63350b365d892161ecf18810ff7b93e35fc1f4')
     pro_2 = ts.pro_api('6d2175719e5b5d27c8b7f3ae83402bbf806979bcd53ec6500808c31a')
-    pro_list = [pro_1, pro_2]
+    pro_api = {
+        True: pro_1,
+        False: pro_2
+    }
+    api_flag = True
+    api = pro_api[api_flag]
+    all_api_used = 0
+
     op_code = status_code.OpCode()
     error_code = status_code.ErrorCode()
 
@@ -89,24 +101,26 @@ class Tushare:
 
     # get all basic info and save it or return only tscode dataframe
     def get_basic_info(self, is_index: bool = True, only_tscode: bool = False):
-        fields = ['ts_code'] if only_tscode else []
+        if only_tscode:
+            df_stock = self.pro_1.stock_basic(fields=['ts_code'])
+            df_index = self.pro_2.index_basic(fields=['ts_code'])
+            df = pd.merge(df_index, df_stock, how='outer', on='ts_code')
+            return df
+
+        # is_index is only valid when only_tscode == False
         if is_index:
-            df = self.pro_2.index_basic(fields=fields)
+            df = self.pro_2.index_basic()
             code = self.op_code.SET_INDEX_INFO
         else:
-            df = self.pro_1.stock_basic(fields=fields)
+            df = self.pro_1.stock_basic()
             code = self.op_code.SET_STOCK_INFO
 
-        if not only_tscode:
-            save(df, op_code=code)
-        else:
-            return df
+        save(df, op_code=code)
 
     # get today's index number or stock price
     def get_price_today(self, ts_code: str, is_index: bool):
         today = get_today()
         if self.cal[today]:
-            self.get_price_daily(ts_code, today, today, is_index)
             self.get_price_daily(ts_code, today, today, is_index)
         else:
             print(f'Today({today}) is not open.')
@@ -116,27 +130,82 @@ class Tushare:
         year_ago = get_year()
         today = get_today()
         self.get_price_daily(ts_code, year_ago, today, is_index)
-        self.get_price_daily(ts_code, year_ago, today, is_index)
 
     # base api wrapper of tushare for index number and stock price
     def get_price_daily(self, ts_code: str, start_date: str, end_date: str, is_index: bool):
+        adj = None
         if is_index:
-            df = self.pro_2.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+            # 500 times/min
+            # df = ts.pro_bar(ts_code=ts_code, asset='E', adj=None, start_date=start_date, end_date=end_date)
             code = self.op_code.SET_INDEX_DAILY
+            asset = 'I'
         else:
-            # todo: replace with pro_api
-            df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date=start_date, end_date=end_date)
+            # 50 times/min
+            # df = ts.pro_bar(ts_code=ts_code, asset='I', adj='qfq', start_date=start_date, end_date=end_date)
             code = self.op_code.SET_STOCK_DAILY
-        save(df, op_code=code)
+            asset = 'E'
+            adj = 'qfq'
+
+        try:
+            print(f"ts_code={ts_code}, api={self.api_flag}, {self.api}, asset={asset}, adj={adj},"
+                  f" start_date={start_date}, end_date={end_date}")
+            df = ts.pro_bar(ts_code=ts_code, api=self.api, asset=asset, adj=adj,
+                            start_date=start_date, end_date=end_date)
+            save(df, op_code=code)
+        except Exception as e:
+            print(e)
+            if self.all_api_used >= 1:
+                self.all_api_used = -1
+                time.sleep(55)
+            self.api_flag = not self.api_flag
+            self.api = self.pro_api[self.api_flag]
+            self.all_api_used += 1
+
+            print("api token cut, retry...")
+            print(f"ts_code={ts_code}, api={self.api_flag}, asset={asset}, adj={adj},"
+                  f" start_date={start_date}, end_date={end_date}")
+            df = ts.pro_bar(ts_code=ts_code, api=self.api, asset=asset, adj=adj,
+                            start_date=start_date, end_date=end_date)
+            save(df, op_code=code)
+
+
+# universal finance data getter
+class Daily:
+    tu = Tushare()
+
+    def __init__(self):
+        pass
+
+    # get index's ts_code list or stock's ts_code list from Tushare
+    def get_tscode_list(self) -> map:
+        print("getting tscode list...")
+        df = self.tu.get_basic_info(only_tscode=True)
+        return map(lambda x: x[0], df.values.tolist())
+
+    # get basic info of both index and stock
+    def get_basic_info(self):
+        print("request for basic info...")
+        self.tu.get_basic_info(is_index=False)
+        self.tu.get_basic_info(is_index=True)
+
+    # iterate the index list or stock list to get the data of specific index or stock
+    def get_price(self, only_today=True):
+        order = 0
+        f = self.tu.get_price_today if only_today else self.tu.get_price_year
+        for is_index in [True, False]:
+            for code in self.get_tscode_list(is_index):
+                order += 1
+                print(f"order: {order}, request for price of {code}...")
+                f(code, is_index)
 
 
 # base class for basic crawler operation
 class CrawlerBase:
     session = requests.session()
     only_today = True
+    img_re = re.compile(r'\[(\w+)\]')
 
     def __init__(self, headers, cookies):
-        self.img_re = re.compile(r'\[(\w+)\]')
         self.session.headers.update(headers)
         self.session.cookies.update(cookies)
         self._daily = Daily
@@ -158,23 +227,29 @@ class CrawlerBase:
     def get_url_content(self, url, headers, params=None):
         if params is None:
             # r = self.session.get(url, headers=headers, timeout=(3, 5))
-            f = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5))
-        elif isinstance(params, dict):
+            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5))
+        elif params is dict:
             # r = self.session.post(url, data=params, headers=headers, timeout=(3, 5))
-            f = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5))
+            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5))
         else:
             raise TypeError
         # todo: error handler
         RETRY_LIMIT = 10
-        while True:
-            if RETRY_LIMIT < 0:
-                break
-            r = f()
+        while RETRY_LIMIT > 0:
+            r = partial_request()
             if r.status_code == 200:
                 return r.text
+            elif r.status_code == 404:
+                print(f'Failed with status_code {r.status_code}, url = {url}, probably this stock not exist')
+                return None
+            elif r.status_code != 200:
+                print(f'Failed with status_code {r.status_code}, url = {url}, retrying...')
             else:
                 RETRY_LIMIT -= 1
                 time.sleep(2)
+
+        print(f"Failed within 10 times retry, url = {url}")
+        return None
 
     # get decoded response and parse it as json
     def get_parsed_json_response(self, url, headers, params=None):
@@ -184,9 +259,9 @@ class CrawlerBase:
         return json.loads(decoded_text)
 
     # parse the document and extract the wanted element
-    def get_target_element(self, selector, html_text):
+    def get_target_element(self, selector: str, html_text: str):
         html_parsed = bf(html_text, "lxml")
-        return html_parsed.findall(selector)
+        return html_parsed.find_all(selector)
 
     # extract all label a, and return an iterator which yield a tuple (text, href) of one label each time
     def extract_label_a(self, html_text):
@@ -205,5 +280,4 @@ class CrawlerBase:
     # extract all label img, and return an iterator which yield one alt attrs of one label each time
     def extract_label_img(self, html_text):
         img_list = self.get_target_element('img', html_text)
-        return map(lambda x: self.img_re.findall(r'\[(\w+)\]', x.attrs['alt'])[0] if 'alt' in x.attrs else '',
-                   img_list)
+        return map(lambda x: self.img_re.findall(r'\[(\w+)\]', x.attrs['alt'])[0] if 'alt' in x.attrs else '', img_list)

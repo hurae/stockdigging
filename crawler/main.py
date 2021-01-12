@@ -4,34 +4,6 @@ import schedule
 from crawler import *
 
 
-# universal finance data getter
-class Daily:
-    tu = Tushare()
-
-    def __init__(self):
-        pass
-
-    # get index's ts_code list or stock's ts_code list from Tushare
-    def get_tscode_list(self, is_index: bool) -> map:
-        print("getting tscode list...")
-        df = self.tu.get_basic_info(is_index, only_tscode=True)
-        return map(lambda x: x[0], json.loads(df.to_json(orient='values')))
-
-    # get basic info of both index and stock
-    def get_basic_info(self):
-        print("request for basic info...")
-        self.tu.get_basic_info(is_index=False)
-        self.tu.get_basic_info(is_index=True)
-
-    # iterate the index list or stock list to get the data of specific index or stock
-    def get_price(self, only_today=True):
-        f = self.tu.get_price_today if only_today else self.tu.get_price_year
-        for is_index in [True, False]:
-            for code in self.get_tscode_list(is_index):
-                print(f"request for price of {code}...")
-                f(code, is_index)
-
-
 # Crawler for Guba
 class Guba(CrawlerBase):
     guba_home = ""
@@ -87,9 +59,10 @@ class Xueqiu(CrawlerBase):
 
     # return a comments "dict" which contains every article's comment of "all stocks"
     def get_all_comment(self):
-        stock_list = []
+        stock_list = map(lambda x: x.split('.')[1] + x.split('.')[0], self.get_tscode_list())
         all_comments_dict = {}
         for ele in stock_list:
+            print(f'Crawling comment of {ele} of Xueqiu...')
             popular_num_sum, comment_reply_list = self.get_comment_by_stock(ele)
             all_comments_dict[ele] = (popular_num_sum, comment_reply_list)
 
@@ -98,18 +71,20 @@ class Xueqiu(CrawlerBase):
     # get all comments of the specific stock
     def get_comment_by_stock(self, stock_code: str):
         comment_reply_list = []
-        popular_num_sum = 0
 
-        stop_status = self.trace_all_pages(stock_code, comment_reply_list, popular_num_sum)
+        stop_status, popular_num_sum = self.trace_all_pages(stock_code, comment_reply_list)
         print(stop_status)
 
         return popular_num_sum, comment_reply_list
 
     # deal with all pages
-    def trace_all_pages(self, stock_code: str, comment_reply_list: list, popular_num_sum: int):
+    def trace_all_pages(self, stock_code: str, comment_reply_list: list):
+        popular_num_sum = 0
         # scan all 100 pages of comments, the max page is 100
         for i in range(100):
             parsed_response = self.get_comment_page(stock_code, page=i + 1)
+            if parsed_response is None:
+                return f"Comment trace failed for stock {stock_code}"
             comment_list = self.extract_comment_list(parsed_response)
             # stop if this stock has less than 100 pages
             if not comment_list:
@@ -146,6 +121,7 @@ class Xueqiu(CrawlerBase):
                            "Referer": f"https://xueqiu.com/S/{stock_code}".format(stock_code=stock_code),
                            "X-Requested-With": "XMLHttpRequest"}
 
+        # parsed_response is None if request failed
         parsed_response = self.get_parsed_json_response(url, headers=comment_headers)
         return parsed_response
 
@@ -180,10 +156,11 @@ class Xueqiu(CrawlerBase):
     # add view_count, reply_count and retweet_count of one page as the popular number
     def extract_popular_number_of_one_comment(self, comment_item):
         count_sum = 0
-        view_count = comment_item['view_count']
-        reply_count = comment_item['reply_count']
-        retweet_count = comment_item['retweet_count']
-        count_sum += view_count + 2 * (reply_count + retweet_count)
+        for ele in comment_item:
+            view_count = ele['view_count']
+            reply_count = ele['reply_count']
+            retweet_count = ele['retweet_count']
+            count_sum += view_count + 2 * (reply_count + retweet_count)
 
         return count_sum
 
@@ -265,7 +242,7 @@ class Scheduler:
 
     # main entrance of Scheduler, start from here
     def start(self):
-        print("Scheduler started.")
+        print(f"Scheduler started at {get_time()}.")
 
         if self.config['history_now']:
             self.job(False)
@@ -286,9 +263,9 @@ class Scheduler:
                 self.daily.get_price(only)
                 self.comment.get_comment(only)
         else:
+            self.comment.get_comment(only_today)
             self.daily.get_basic_info()
             self.daily.get_price(only_today)
-            self.comment.get_comment(only_today)
             raise self.TestDone
 
 
@@ -302,7 +279,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
     finally:
-        print("END at {0}".format(get_time()))
+        print(f"END at {get_time()}")
 
     # pass
     # tu = Tushare()
