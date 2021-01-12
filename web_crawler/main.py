@@ -22,16 +22,16 @@ class Guba(CrawlerBase):
 
     # return a comments list which contains every article's comment of all stocks
     def get_all_comment(self):
-        def f(tscode):
-            print(f'(ts_code, is_index): {tscode}')
-            stock_code = tscode[0][:6]
-            exchange = tscode[0][-2:]
-            is_index = tscode[1]
+        def f(x):
+            print(f'(ts_code, is_index): {x}')
+            stock_code = x[0][:6]
+            exchange = x[0][-2:]
+            is_index = x[1]
             if is_index:
                 code = 'zs' + exchange.lower() + stock_code
             else:
                 code = stock_code
-            return code, tscode
+            return code, x[0]
 
         index_list = map(f, filter(lambda x: x[1], self.get_tscode_list()))
         stock_list = map(f, filter(lambda x: not x[1], self.get_tscode_list()))
@@ -221,7 +221,6 @@ class Xueqiu(CrawlerBase):
         all_stock_comments_dict = {}
 
         self.iter_list(all_index_comments_dict, index_list)
-
         self.iter_list(all_stock_comments_dict, stock_list)
 
         return all_index_comments_dict, all_stock_comments_dict
@@ -277,7 +276,7 @@ class Xueqiu(CrawlerBase):
                 comment_text = self.extract_comment_text(comment_item)
                 print(f"stock_code: {stock_code}, page: {i + 1}, comment_time: {comment_time},"
                       f" comment_text: {comment_text}")
-                comment_reply_list.append((comment_time, comment_text))
+                comment_reply_list.append(comment_text)
 
                 # get popular number
                 popular_num_sum += self.extract_popular_number_of_one_page(comment_list)
@@ -458,6 +457,9 @@ class Scheduler:
             raise self.ConfigException("default configuration not found!")
         self.config = self.config[arguments] if arguments in self.config else self.config['default']
         status_code.set_value('db_addr', self.config['db_addr'])
+        if 'test' in arguments:
+            print('string "test" detected, TEST mode start.')
+            status_code.set_value('test', True)
 
     # main entrance of Scheduler, start from here
     def start(self):

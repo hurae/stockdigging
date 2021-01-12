@@ -188,7 +188,10 @@ class Daily:
     def get_tscode_list(self) -> map:
         print("getting tscode list...")
         df = self.tu.get_basic_info(only_tscode=True)
-        return map(lambda x: (x[0], x[1]), df.values.tolist())
+        df_list = df.values.tolist()
+        if status_code.get_value('test'):
+            df_list = random.choices(df_list, k=2)
+        return map(lambda x: (x[0], x[1]), df_list)
 
     # get basic info of both index and stock
     def get_basic_info(self):
@@ -224,7 +227,7 @@ class CrawlerBase:
     def get_proxy_str(self):
         proxy_api = 'http://ip.ipjldl.com/index.php/api/entry?method=proxyServer.hdtiqu_api_url&packid=7&fa=1&groupid=0&fetch_key=&time=1&qty=1&port=1&format=json&ss=5&css=&dt=&pro=&city=&usertype=4'
         while True:
-            r = requests.get(url=proxy_api)
+            r = requests.get(url=proxy_api, timeout=(3, 5))
             if r.status_code == 200:
                 json_obj = json.loads(r.text)
                 if json_obj['success'] == 'true':
@@ -246,6 +249,8 @@ class CrawlerBase:
 
                     print('socks5_proxy:', proxyMeta)
                     return
+                else:
+                    print(json_obj['msg'])
 
     # proxy for class Daily
     def __getattr__(self, item):
@@ -286,6 +291,9 @@ class CrawlerBase:
                 print(f"get_url_content_preview: url={url}, status_code={r.status_code}")
                 return r.text
             elif r.status_code == 302:
+                print(f'Failed with status_code {r.status_code}, url = {url}')
+                if r.next.url in ['http://guba.eastmoney.com/v1/Home/Error']:
+                    return None
                 self.get_proxy_str()
                 continue
             elif r.status_code in [400, 404]:
