@@ -42,6 +42,34 @@ class OpCode(_const):
         self.GET_CATEGORY_BY_CODE = 28
         self.GET_INFO_BY_CATEGORY = 29
 
+    def route(self, code):
+        if code in [1, 2, 16, 17, 18, 19, 20, 21, 22]:
+            return "/"
+        elif code == 3:
+            return "/opinion"
+        elif code in [4, 5]:
+            return "/increase"
+        elif code in [6, 7, 8, 9]:
+            return "/info"
+        elif code in [10, 11]:
+            return "/comment"
+        elif code in [12, 15]:
+            return "/userid"
+        elif code == 13:
+            return "/new"
+        elif code == 14:
+            return "/update"
+        elif code == 23:
+            return "/search"
+        elif code == 24:
+            return "/filter"
+        elif code == 25:
+            return "/stock"
+        elif code in [26, 27]:
+            return "/collection"
+        else:
+            return "error"
+
 
 class ErrorCode(_const):
     def __init__(self):
