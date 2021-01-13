@@ -43,11 +43,11 @@
       </el-tooltip>
       <el-button :loading="loading" type="primary" style="width:100%;margin-bottom:30px;" @click.native.prevent="handleLogin">登录</el-button>
       <div style="position:relative">
-      <router-link to="/profile">
+        <router-link to="/register">
           <el-button class="thirdparty-button" type="primary">
            忘记密码？
-         </el-button>
-      </router-link>
+          </el-button>
+        </router-link>
         <el-button class="party-button" type="primary">
           没有账号？点此注册
         </el-button>

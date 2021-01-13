@@ -13,7 +13,7 @@
               <el-tab-pane label="大盘指数" name="dapan">
                 <line-chart :chart-data="lineChartData" />
               </el-tab-pane>
-              <el-tab-pane label="行业指数" name="hangye">
+              <el-tab-pane label="行业指数" name="hangqing">
                 <line-chart :chart-data="lineChartData" />
               </el-tab-pane>
               <el-tab-pane label="个股详情" name="gegu">

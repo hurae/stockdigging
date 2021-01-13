@@ -27,17 +27,17 @@ export const constantRoutes = [
   {
     path: '/login',
     component: () => import('@/views/login/index'),
-    // hidden: true
+    hidden:true
   },
   {
     path: '/register',
     component: () => import('@/views/register/index'),
-    // hidden: true
+    hidden: true
   },
   {
     path: '/modifyPwd',
     component: () => import('@/views/modifyPwd/index'),
-    // hidden: true
+    hidden: true
   },
   {
     path: '/auth-redirect',
@@ -64,6 +64,19 @@ export const constantRoutes = [
         component: () => import('@/views/dashboard/index'),
         name: 'main',
         meta: { title: '首页', icon: 'dashboard', affix: true }
+      }
+    ]
+  },
+  {
+    path: '/register',
+    component: Layout,
+    redirect: '/register/main',
+    children: [
+      {
+        path: 'main',
+        component: () => import('@/views/register/index'),
+        name: 'main',
+        meta: { title: '注册', icon: 'dashboard', affix: true }
       }
     ]
   }

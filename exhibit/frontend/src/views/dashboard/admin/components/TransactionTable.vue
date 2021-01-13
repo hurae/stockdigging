@@ -1,24 +1,12 @@
 <template>
   <el-table :data="list" style="width: 100%;padding-top: 15px;">
-    <el-table-column label="股票名称" min-width="100">
-      <template slot-scope="scope">
-        {{ scope.row.order_no | orderNoFilter }}
-      </template>
+    <el-table-column 
+      label="股票名称" 
+      width="100" 
+      prop="stockname" 
+      @col-click="more">
     </el-table-column>
-    <el-table-column label="股票代码" width="200" align="center">
-      <template slot-scope="scope">
-        {{ scope.row.price | toThousandFilter }}
-      </template>
-    </el-table-column>
-    <el-table-column label="上市公司" width="200" align="center">
-      <template slot-scope="scope">
-        {{ scope.row.price | toThousandFilter }}
-      </template>
-    </el-table-column>
-    <el-table-column label="预测涨跌幅" width="200" align="center">
-      <template slot-scope="scope">
-        {{ scope.row.price | toThousandFilter }}
-      </template>
+    <el-table-column label="预测涨跌幅" width="100" align="center" prop="percent">
     </el-table-column>
   </el-table>
 </template>
@@ -41,7 +29,12 @@ export default {
   },
   data() {
     return {
-      list: null
+      list: [
+        {
+          stockname:'12345',
+          percent:'21231'
+        }
+      ]
     }
   },
   created() {
@@ -49,10 +42,14 @@ export default {
   },
   methods: {
     fetchData() {
+
       transactionList().then(response => {
         this.list = response.data.items.slice(0, 8)
       })
+    },
+    more() {
+      this.$router.push({path:'/register'})
     }
-  }
-}
+}}
 </script>
+

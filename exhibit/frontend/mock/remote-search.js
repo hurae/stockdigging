@@ -41,7 +41,8 @@ module.exports = [
             order_no: '@guid()',
             timestamp: +Mock.Random.date('T'),
             username: '@name()',
-            price: '@float(1000, 15000, 0, 2)',
+            price: '@int(1000000, 6000000, 0, 2)',
+            test: '@float(0, 30, 0, 2)',
             'status|1': ['success', 'pending']
           }]
         }
