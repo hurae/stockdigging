@@ -42,63 +42,81 @@ length3 = len( ans3 )
 flag3 = 0
 
 
+# extract_stock_id:通过ts_code查询股票id
+def extract_stock_id(ts_code):
+    res = session.execute( session.query( StockInfo.id ).filter( StockInfo.ts_code == ts_code ) ).fetchall()
+    if len( res ) == 0:
+        # print( "stock:ts_code不存在！" )
+        return 0
+    else:
+        res = session.execute( session.query( StockInfo.id ).filter( StockInfo.ts_code == ts_code ) ).fetchall()[0][0]
+        # print( "通过ts_code查询到的股票id：", res )
+        return res
+
+
+# extract_stock_id( "123" )
+
+# extract_index_id:通过ts_code查询指数id
+def extract_index_id(ts_code):
+    res = session.execute( session.query( IndexInfo.id ).filter( IndexInfo.ts_code == ts_code ) ).fetchall()
+    if len( res ) == 0:
+        # print( "index：ts_code不存在！" )
+        return 0
+    else:
+        res = session.execute( session.query( IndexInfo.id ).filter( IndexInfo.ts_code == ts_code ) ).fetchall()[0][0]
+        # print( "通过ts_code查询到的股票id：", res )
+        return res
+
+
+# extract_index_id("zhishu1")
+
+
 # operation 6 插入指数信息
 def set_index_info(ts_code, name, fullname, market, publisher, index_type, category, base_date, base_point, list_date,
                    weight_rule, desc, exp_date):
-    row_obj = IndexInfo( ts_code=ts_code,
-                         name=name,
-                         fullname=fullname,
-                         market=market,
-                         publisher=publisher,
-                         index_type=index_type,
-                         category=category,
-                         base_date=base_date,
-                         base_point=base_point,
-                         list_date=list_date,
-                         weight_rule=weight_rule,
-                         desc=desc,
-                         exp_date=exp_date )
-    session.add( row_obj )
-    row_obj = IndexInfo( ts_code=ts_code,
-                         name=name,
-                         fullname=fullname,
-                         market=market,
-                         publisher=publisher,
-                         index_type=index_type,
-                         category=category,
-                         base_date=base_date,
-                         base_point=base_point,
-                         list_date=list_date,
-                         weight_rule=weight_rule,
-                         desc=desc,
-                         exp_date=exp_date )
-    session.add( row_obj )
+    if extract_index_id( ts_code ) != 0:
+        session.query( IndexInfo ).filter( IndexInfo.ts_code == ts_code ).update(
+            {"name": name, "fullname": fullname, "market": market, "publisher": publisher, "index_type": index_type,
+             "category": category, "base_date": base_date, "base_point": base_point, "list_date": list_date,
+             "weight_rule": weight_rule, "desc": desc, "exp_date": exp_date} )
+    else:
+        row_obj = IndexInfo( ts_code=ts_code,
+                             name=name,
+                             fullname=fullname,
+                             market=market,
+                             publisher=publisher,
+                             index_type=index_type,
+                             category=category,
+                             base_date=base_date,
+                             base_point=base_point,
+                             list_date=list_date,
+                             weight_rule=weight_rule,
+                             desc=desc,
+                             exp_date=exp_date )
+        session.add( row_obj )
     session.commit()
 
-
-# set_index_info('zhishu8', '测试1', '345', 'y1', '23', '23', '8', '1999-09-10', 0.9, '1999-2-2', 0.9, '9', '2020-2-2')
+# set_index_info('zhishu9', '测试2', '345', 'y2', '23', '23', '8', '1999-09-10', 0.9, '1999-2-2', 0.9, '9', '2020-2-2')
 
 
 # operation 7 插入股票信息
 def set_stock_info(ts_code, stock_name, stock_code, list_data, area, industry):
-    row_obj = StockInfo( ts_code=ts_code,
-                         stock_name=stock_name,
-                         stock_code=stock_code,
-                         list_data=list_data,
-                         area=area,
-                         industry=industry )
-    session.add( row_obj )
+    if extract_stock_id( ts_code ) != 0:
+        session.query( StockInfo ).filter( StockInfo.ts_code == ts_code ).update(
+            {"stock_name": stock_name, "stock_code": stock_code, "list_data": list_data, "area": area,
+             "industry": industry} )
+    else:
+        row_obj = StockInfo( ts_code=ts_code,
+                             stock_name=stock_name,
+                             stock_code=stock_code,
+                             list_data=list_data,
+                             area=area,
+                             industry=industry )
+        session.add( row_obj )
     session.commit()
 
 
-# set_stock_info('123', '测试3', '345', '1999-9-9', '23', '23')
-
-
-# extract_index_id:通过ts_code查询指数id
-def extract_index_id(ts_code):
-    res = session.execute( session.query( IndexInfo.id ).filter( IndexInfo.ts_code == ts_code ) ).fetchall()[0][0]
-    print( "通过ts_code查询到的指数id：", res )
-    return res
+# set_stock_info('12', '测试9', '45', '1999-9-9', '23', '23')
 
 
 # operation 8 插入指数行情
@@ -123,13 +141,6 @@ def set_index_state(ts_code, trade_date, close, open, high, low):
 
 
 # set_index_state('zhishu2', '2020-1-1', 1.1, 2.1, 1.0, 1.1)
-
-
-# extract_stock_id:通过ts_code查询股票id
-def extract_stock_id(ts_code):
-    res = session.execute( session.query( StockInfo.id ).filter( StockInfo.ts_code == ts_code ) ).fetchall()[0][0]
-    # print( "通过ts_code查询到的股票id：", res )
-    return res
 
 
 # operation 9 插入股票行情:股价表
@@ -197,7 +208,7 @@ def get_stock_all_comment(flag):
     return data
 
 
-#get_stock_all_comment(16)
+# get_stock_all_comment(16)
 
 def get_index_all_comment(flag1):
     # 每个指数每日评论
@@ -249,8 +260,7 @@ def set_stock_public_opinion(flag, public_index):
     session.commit()
 
 
-
-#set_stock_public_opinion( 1, 3.4 )
+# set_stock_public_opinion( 1, 3.4 )
 
 def set_index_public_opinion(flag1, public_index):
     session.query( IndexPopular ).filter(
@@ -270,7 +280,7 @@ def set_user_info(name, signature, favcion, password, phone, last_login):
     new_password = hashlib.sha256( new_password.encode() ).hexdigest()
     ans = session.execute( session.query( User.phone ).filter( User.phone == phone ) ).fetchall()
     if len( ans ) != 0:
-        print( "手机号已经注册！")
+        print( "手机号已经注册！" )
     else:
         row_obj = User( name=name,
                         signature=signature,
@@ -285,7 +295,7 @@ def set_user_info(name, signature, favcion, password, phone, last_login):
         session.commit()
 
 
-#et_user_info('小明','ming',34,'okkkkkk','1736299','19980809')
+# et_user_info('小明','ming',34,'okkkkkk','1736299','19980809')
 
 # 操作码14 修改用户密码 UPDATE_USER_INFO
 def update_user_info(id, password):
@@ -346,7 +356,7 @@ def get_stock_feature_history(flag2):
 # 操作码19 获取指数特征四元组(舆情指数，热度，今日平均，明日平均）
 def get_index_feature_history(flag3):
     res = session.execute(
-        session.query( IndexPopular.public_index, IndexPopular.num,  IndexPoint.today_ave, IndexPoint.tom_ave ).filter(
+        session.query( IndexPopular.public_index, IndexPopular.num, IndexPoint.today_ave, IndexPoint.tom_ave ).filter(
             IndexInfo.ts_code == ans3[flag3],
             IndexPopular.index_info_id == IndexInfo.id,
             IndexPoint.index_info_id == IndexInfo.id,
@@ -366,7 +376,7 @@ def get_index_feature_history(flag3):
 def get_stock_feature_today(flag2):
     try:
         res = session.execute(
-            session.query( StockPopular.public_index,StockPopular.num ).filter(
+            session.query( StockPopular.public_index, StockPopular.num ).filter(
                 StockInfo.ts_code == ans2[flag2],
                 StockPopular.stock_info_id == StockInfo.id,
                 StockPopular.comment_date == get_today_format()
@@ -387,7 +397,7 @@ def get_stock_feature_today(flag2):
 def get_index_feature_today(flag3):
     try:
         res = session.execute(
-            session.query(  IndexPopular.public_index,IndexPopular.num ).filter(
+            session.query( IndexPopular.public_index, IndexPopular.num ).filter(
                 IndexInfo.ts_code == ans3[flag3],
                 IndexPopular.index_info_id == IndexInfo.id,
                 IndexPopular.comment_date == get_today_format()
