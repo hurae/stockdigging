@@ -137,9 +137,12 @@ class CodeCollection(Code):
 
 @app.post("/")
 async def post_code(code: Code):
-    
     global flag, flag1
     global flag2, flag3
+    global ans2, length2
+    ans2, length2 = op.stock_tscode()
+    global ans3, length3
+    ans3, length3 = op.index_tscode()
     if code.operate_code == op_code.GET_ALL_COMMENT:
         response = rg()
         # 1.get_all_comment()
@@ -210,12 +213,10 @@ async def post_code(code: Code):
     elif code.operate_code == op_code.GET_INDEX_FEATURE_HISTORY:
         response = rg()
         # 19.get_index_feature_history()
-        print( flag3 )
         if flag3 < length3:
             data = op.get_index_feature_history(flag3)
             flag3 = flag3 + 1
             response["data"] = data
-            print(response)
             return response
         elif flag3 == length3:
             flag3 = 0
@@ -271,7 +272,7 @@ async def post_code(code: Code):
 async def post_code_opinion(code_opinion: CodeOpinion):
     global flag
     global flag1
-    
+
     if code_opinion.operate_code == op_code.SET_PUBLIC_OPINION:
         response = rg()
         # 3.set_public_opinion()
@@ -519,4 +520,4 @@ async def post_code_collection(code_collection: CodeCollection):
         return response
 
 
-uvicorn.run(app, host='0.0.0.0', port=8000)
+uvicorn.run(app, host='192.168.43.64', port=8000)

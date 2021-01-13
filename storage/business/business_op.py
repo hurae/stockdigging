@@ -41,6 +41,20 @@ ans3 = [ele for ele in (map( lambda item: (item[0]), query3 ))]
 length3 = len( ans3 )
 flag3 = 0
 
+print(length3)
+def stock_tscode():
+    query2 = session.query(StockInfo.ts_code).all()
+    ans2 = [ele for ele in (map(lambda item: (item[0]), query2))]
+    length2 = len(ans2)
+    return ans2, length2
+
+
+def index_tscode():
+    query3 = session.query(IndexInfo.ts_code).all()
+    ans3 = [ele for ele in (map(lambda item: (item[0]), query3))]
+    length3 = len(ans3)
+    return ans3,length3
+
 
 # extract_stock_id:通过ts_code查询股票id
 def extract_stock_id(ts_code):
