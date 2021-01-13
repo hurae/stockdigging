@@ -18,6 +18,13 @@ def get_year():
     last_year_date = datetime.date.today() - datetime.timedelta(days=10)
     return last_year_date.strftime('%Y%m%d')
 
+# get the (i)th day before today
+def get_the_day_before(i):
+    last_year_date = datetime.date.today() - datetime.timedelta(days=i)
+    date = last_year_date.strftime('%Y%m%d')
+    print(f'the_{i}_day_before today is {date}')
+    return date
+
 
 def get_yesterday(trade_date):
     yesterday_date = datetime.datetime.strptime(trade_date, '%Y-%m-%d') - datetime.timedelta(days=1)
@@ -26,7 +33,7 @@ def get_yesterday(trade_date):
 
 # get date string from timestamp, specially divided by 1000 for xueqiu
 def get_date_from_timestamp(timestamp):
-    return datetime.datetime.utcfromtimestamp( timestamp / 1000).strftime( "%Y%m%d" )
+    return datetime.datetime.utcfromtimestamp(timestamp / 1000).strftime("%Y%m%d")
 
 
 def get_today_format():

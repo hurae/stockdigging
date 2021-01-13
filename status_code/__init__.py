@@ -44,7 +44,7 @@ class OpCode(_const):
 
     def route(self, code):
         if code in [1, 2, 16, 17, 18, 19, 20, 21, 22]:
-            return "/"
+            return ""
         elif code == 3:
             return "/opinion"
         elif code in [4, 5]:
