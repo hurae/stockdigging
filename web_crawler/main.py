@@ -114,15 +114,20 @@ class Guba(CrawlerBase):
                         article_code = re.findall(r'\d,(\d+).html', url_item["url"])[0]
                         print("article_code:", article_code)
                         article_date = self.get_article_date(stock_code, article_code)
+                        article_date = article_date.replace('-', '')
                         print("article_date:", article_date)
-                        if article_date >= (get_today_format() if self.only_today else get_year_format()):
+                        print(f"comment_time: {article_date}, the_day: {status_code.get_value('the_day')}")
+                        if article_date > status_code.get_value('the_day'):
+                            continue
+                        if article_date < status_code.get_value('the_day'):
+                            return popular_num
+                        # if article_date >= (get_today_format() if self.only_today else get_year_format()):
+                        if article_date == status_code.get_value('the_day'):
                             popular_num += self.get_popular_num(url_item["read_num"], url_item["comment_num"])
                             print("popular_num in get_comment_by_page:", popular_num)
                             if int(url_item["comment_num"]) > 0:
                                 self.get_comment_by_article(stock_code, article_code, url_item["comment_num"],
                                                             article_comment_list)
-                        else:
-                            return popular_num
 
                 popular_num = self.get_next_page(stock_code, popular_num, article_comment_list, page)
 
@@ -161,8 +166,8 @@ class Guba(CrawlerBase):
         comment_dict = self.get_parsed_json_response(comment_url, article_headers, comment_data)
         if comment_dict["re"] is not None:
             for i in range(len(comment_dict["re"])):
-                print(comment_dict["re"][i]["reply_text"])
-                article_comment_list.append(comment_dict["re"][i]["reply_text"])
+                print((comment_dict["re"][i]["reply_time"][:10].replace('-',''), comment_dict["re"][i]["reply_text"]))
+                article_comment_list.append((comment_dict["re"][i]["reply_time"][:10].replace('-',''), comment_dict["re"][i]["reply_text"]))
                 if len(comment_dict["re"][i]["child_replys"]) <= comment_dict["re"][i]["reply_count"]:
                     reply_id = comment_dict["re"][i]["reply_id"]
                     child_comment_data = {
@@ -176,9 +181,10 @@ class Guba(CrawlerBase):
                             and "child_replys" in child_comment_dict['re'] \
                             and child_comment_dict["re"]["child_replys"] is not None:
                         for j in range(len(child_comment_dict["re"]["child_replys"])):
+                            reply_time = child_comment_dict["re"]["child_replys"][j]["reply_time"][:10].replace('-','')
                             reply_text = child_comment_dict["re"]["child_replys"][j]["reply_text"]
-                            print(reply_text)
-                            article_comment_list.append(reply_text)
+                            print((reply_time, reply_text))
+                            article_comment_list.append((reply_time, reply_text))
 
     # get the date of the article has been writen
     def get_article_date(self, stock_code, article_code):
@@ -269,14 +275,19 @@ class Xueqiu(CrawlerBase):
             for comment_item in comment_list:
                 # get comment date
                 comment_time = self.extract_comment_time(comment_item)
-                if comment_time < (get_today() if self.only_today else get_year()):
+                print(f"comment_time: {comment_time}, the_day: {status_code.get_value('the_day')}")
+                if comment_time > status_code.get_value('the_day'):
+                    continue
+                if comment_time < status_code.get_value('the_day'):
                     return f"Stopped at {comment_time}, while today is {get_today()}", popular_num_sum
+                # if comment_time < (get_today() if self.only_today else get_year()):
+                #     return f"Stopped at {comment_time}, while today is {get_today()}", popular_num_sum
 
                 # get comment text
                 comment_text = self.extract_comment_text(comment_item)
                 print(f"stock_code: {stock_code}, page: {i + 1}, comment_time: {comment_time},"
                       f" comment_text: {comment_text}")
-                comment_reply_list.append(comment_text)
+                comment_reply_list.append((comment_time, comment_text))
 
                 # get popular number
                 popular_num_sum += self.extract_popular_number_of_one_page(comment_list)
@@ -288,7 +299,7 @@ class Xueqiu(CrawlerBase):
                 if reply_json_content is None:
                     print(f"    reply: none")
                     continue
-                for i, ele in enumerate(self.get_reply_list(reply_json_content)):
+                for i, ele in enumerate(self.get_reply_list(reply_json_content, comment_time)):
                     print(f"    reply{i}: {ele}")
                     comment_reply_list.append(ele)
         return "all pages done", popular_num_sum
@@ -308,10 +319,10 @@ class Xueqiu(CrawlerBase):
         return parsed_response
 
     # get reply list
-    def get_reply_list(self, parsed_response: dict) -> list:
+    def get_reply_list(self, parsed_response: dict, comment_time) -> list:
         reply_list = []
         for ele in parsed_response['comments']:
-            reply_list.append(self.handle_html_label(ele['text']))
+            reply_list.append((comment_time, self.handle_html_label(ele['text'])))
         return reply_list
 
     # get all replies of the given comment
@@ -417,9 +428,23 @@ class Comment:
 
     # get all comment of today or last last 365 days from both Guba and Xueqiu
     def get_comment(self, only_today):
+        if only_today:
+            # get 10 days day by day in today mode
+            for i in range(10):
+                status_code.set_value('the_day', get_the_day_before(i))
+                self.iter(only_today)
+        else:
+            self.iter(only_today)
+
+        print("Comment Done.")
+
+    def iter(self, only_today):
         guba_index_comments, guba_stock_comments = self.guba.start(only_today)
         xueqiu_index_comments, xueqiu_stock_comments = self.xueqiu.start(only_today)
-
+        print('guba_index', guba_index_comments)
+        print('guba_stock', guba_stock_comments)
+        print('xuqiu_index', xueqiu_index_comments)
+        print('xuqiu_stock', xueqiu_stock_comments)
         save(dict(xueqiu_index_comments, **guba_index_comments), op_code=self.op_code.SET_INDEX_COMMENT)
         save(dict(xueqiu_stock_comments, **guba_stock_comments), op_code=self.op_code.SET_STOCK_COMMENT)
 
@@ -478,15 +503,14 @@ class Scheduler:
 
     def job(self, only_today: bool = None):
         print("doing job...")
+        self.daily.get_basic_info()
         if only_today is None:
             for only in [False, True]:
-                self.daily.get_basic_info()
                 self.daily.get_price(only)
                 self.comment.get_comment(only)
         else:
-            self.comment.get_comment(only_today)
-            self.daily.get_basic_info()
             self.daily.get_price(only_today)
+            self.comment.get_comment(only_today)
             raise self.TestDone
 
 
