@@ -12,13 +12,11 @@ from bs4 import BeautifulSoup as bf
 from threading import Thread
 import requests
 
-# address of database manager
-db_addr = 'http://db.local/'
+OpCode = status_code.OpCode()
 
 
-# todo: complete saver function
 # Universal DB saver
-def save(df: pd.DataFrame, op_code: int):
+def save(df, op_code: int):
     """
     index_info:
     ["ts_code","name","market","publisher","category","base_date","base_point","list_date"]
@@ -37,34 +35,39 @@ def save(df: pd.DataFrame, op_code: int):
     {'operate_code': 8, 'data': '[["000001.SH","20210106",3550.8767,3530.9072,3556.8022,3513.1262,3528.6767,22.2,0.6291,370230926.0,521799529.8000000119],["000001.SH","20210105",3528.6767,3492.1912,3528.6767,3484.7151,3502.9584,25.7183,0.7342,407995934.0,568019462.2000000477],["000001.SH","20210104",3502.9584,3474.6793,3511.6554,3457.2061,3473.0693,29.8891,0.8606,380790800.0,523367700.8000000119]]'}
     """
 
-    if df.empty:
-        print("Trying to saving empty, skipped.")
-        return
+    if isinstance(df, pd.DataFrame):
+        if df.empty:
+            print("Trying to saving empty, skipped.")
+            return
+        else:
+            json_data = json.loads(df.to_json(orient='records', force_ascii=False))
+    else:
+        json_data = df
 
-    json_string = df.to_json(orient='values', force_ascii=False)
-    route = "/set/info"
+    route = OpCode.route(code=op_code)
     final_msg = {
         "operate_code": op_code,
-        "data": json_string
+        "data": json_data
     }
-    final_msg_poster(final_msg, route)
-    Thread(target=final_msg_poster, args=(final_msg, route)).start()
-    print(op_code, json_string[:120] + "........")
+    # Thread(target=final_msg_poster, args=(final_msg, route)).start()
     print(json.dumps(final_msg)[:150] + ".........")
     print(df)
+    final_msg_poster(final_msg, route)
     print("------------------------------------------------------")
 
 
 # post with error detection and unlimited retry
 def final_msg_poster(params, route):
-    # todo: response parse
     while True:
-        r = requests.post(url=db_addr + route, json=params, timeout=(3, 5))
+        # db_addr is address of database manager
+        api_url = status_code.get_value('db_addr') + route
+        print("saving to api_url", api_url)
+        r = requests.post(url=api_url, json=params, timeout=(3, 5))
         json_obj = json.loads(r.text)
-        if r.status_code == 200 and json_obj['error_code'] == 0 and json_obj['data'][0] is str:
+        if r.status_code == 200 and json_obj['error_code'] == 0:
             break
         else:
-            print(json_obj['error_message'])
+            print("response_error_msg:", json_obj['error_message'])
             time.sleep(2)
     return json_obj
 
@@ -185,7 +188,10 @@ class Daily:
     def get_tscode_list(self) -> map:
         print("getting tscode list...")
         df = self.tu.get_basic_info(only_tscode=True)
-        return map(lambda x: (x[0], x[1]), df.values.tolist())
+        df_list = df.values.tolist()
+        if status_code.get_value('test'):
+            df_list = random.choices(df_list, k=2)
+        return map(lambda x: (x[0], x[1]), df_list)
 
     # get basic info of both index and stock
     def get_basic_info(self):
@@ -196,9 +202,10 @@ class Daily:
     # iterate the index list or stock list to get the data of specific index or stock
     def get_price(self, only_today=True):
         order = 0
+        tscode_list = self.get_tscode_list()
         f = self.tu.get_price_today if only_today else self.tu.get_price_year
         for is_index in [True, False]:
-            for code in self.get_tscode_list(is_index):
+            for code in tscode_list:
                 order += 1
                 print(f"order: {order}, request for price of {code}...")
                 f(code, is_index)
@@ -209,18 +216,48 @@ class CrawlerBase:
     session = requests.session()
     only_today = True
     # img_re = re.compile(r'\[(\w+)\]')
+    proxy = {}
 
     def __init__(self, headers, cookies):
         self.session.headers.update(headers)
         self.session.cookies.update(cookies)
         self._daily = Daily
+        self.get_proxy_str()
+
+    def get_proxy_str(self):
+        proxy_api = 'http://ip.ipjldl.com/index.php/api/entry?method=proxyServer.hdtiqu_api_url&packid=7&fa=1&groupid=0&fetch_key=&time=1&qty=1&port=1&format=json&ss=5&css=&dt=&pro=&city=&usertype=4'
+        while True:
+            r = requests.get(url=proxy_api, timeout=(3, 5))
+            if r.status_code == 200:
+                json_obj = json.loads(r.text)
+                if json_obj['success'] == 'true':
+                    proxyMeta = "http://%(host)s:%(port)s" % {
+                        "host": json_obj['data'][0]['IP'],
+                        "port": json_obj['data'][0]['Port'],
+                    }
+                    proxy = {
+                        'http': proxyMeta,
+                        'https': proxyMeta
+                    }
+                    self.proxy = proxy
+
+                    try:
+                        requests.get(url='https://www.baidu.com', proxies=self.proxy, timeout=(3, 5))
+                    except Exception as e:
+                        print(f"Proxy {proxyMeta} Unreachable,", e)
+                        continue
+
+                    print('socks5_proxy:', proxyMeta)
+                    return
+                else:
+                    print(json_obj['msg'])
 
     # proxy for class Daily
     def __getattr__(self, item):
         if item == 'get_tscode_list':
             return functools.partial(getattr(self._daily, item), self=self._daily)
 
-    # main entrance of Xueqiu crawler
+    # main entrance of Xueqiu web_crawler
     def set_base(self, only_today):
         self.only_today = only_today
 
@@ -232,27 +269,43 @@ class CrawlerBase:
     def get_url_content(self, url, headers, params=None):
         if params is None:
             # r = self.session.get(url, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5), allow_redirects=False)
+            partial_request = functools.partial(self.session.get, url, headers=headers, timeout=(3, 5),
+                                                allow_redirects=False)
         elif isinstance(params, dict):
             # r = self.session.post(url, data=params, headers=headers, timeout=(3, 5))
-            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5), allow_redirects=False)
+            partial_request = functools.partial(self.session.post, url, data=params, headers=headers, timeout=(3, 5),
+                                                allow_redirects=False)
         else:
             raise TypeError
         # todo: error handler
         RETRY_LIMIT = 10
         while RETRY_LIMIT > 0:
-            r = partial_request()
+            try:
+                r = partial_request(proxies=self.proxy)
+            except Exception as e:
+                print(e)
+                self.get_proxy_str()
+                continue
+
             if r.status_code == 200:
-                print(r.text)
+                print(f"get_url_content_preview: url={url}, status_code={r.status_code}")
                 return r.text
-            elif r.status_code in [302, 400, 404]:
+            elif r.status_code == 302:
+                print(f'Failed with status_code {r.status_code}, url = {url}')
+                if r.next.url in ['http://guba.eastmoney.com/v1/Home/Error']:
+                    return None
+                self.get_proxy_str()
+                continue
+            elif r.status_code in [400, 404]:
                 print(f'Failed with status_code {r.status_code}, url = {url},'
                       f' probably this stock not exist or the comment do not have replies')
                 return None
             elif r.status_code != 200:
+                self.get_proxy_str()
                 print(f'Failed with status_code {r.status_code}, url = {url}, retrying...')
                 RETRY_LIMIT -= 1
-                time.sleep(random.randint(0, 3))
+
+            time.sleep(random.random() * 3)
 
         print(f"Failed within 10 times retry, url = {url}")
         return None
@@ -289,3 +342,7 @@ class CrawlerBase:
         # print(f"html_text: {html_text}, img_list: {img_list}")
         img_text_map = map(lambda x: re.findall(r'\[(\w+)\]', x.attrs['alt'])[0] if 'alt' in x.attrs else '', img_list)
         return img_text_map
+
+
+def crawler():
+    return None
