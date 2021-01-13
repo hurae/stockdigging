@@ -35,24 +35,62 @@ def save(df, op_code: int):
     {'operate_code': 8, 'data': '[["000001.SH","20210106",3550.8767,3530.9072,3556.8022,3513.1262,3528.6767,22.2,0.6291,370230926.0,521799529.8000000119],["000001.SH","20210105",3528.6767,3492.1912,3528.6767,3484.7151,3502.9584,25.7183,0.7342,407995934.0,568019462.2000000477],["000001.SH","20210104",3502.9584,3474.6793,3511.6554,3457.2061,3473.0693,29.8891,0.8606,380790800.0,523367700.8000000119]]'}
     """
 
+    route = OpCode.route(code=op_code)
+
     if isinstance(df, pd.DataFrame):
         if df.empty:
             print("Trying to saving empty, skipped.")
             return
         else:
-            json_data = json.loads(df.to_json(orient='records', force_ascii=False))
+            json_data = json.loads(df.to_json(orient='values', force_ascii=False))
+            final_msg = {
+                "operate_code": op_code,
+                "data": json_data
+            }
+            log_and_post(final_msg, route)
+            return
     else:
+        if df is None:
+            print("Trying to saving empty, skipped.")
+            return
         json_data = df
+        # key = tscode, value = (num, [(date, comment),(date, comment)])
+        # print(type(json_data), json_data)
+        for (key, value) in json_data.items():
+            # date_dict = {}
+            # i = [(date, comment),(date, comment)]
+            # for i in value[1]:
+            #     date_dict[i[0]] = []
+            # i = [(date, comment),(date, comment)]
+            # for i in value[1]:
+            #     date_dict[i[0]].append(i[1])
+            comment_list = []
+            for i in value[1]:
+                comment_list.append(i[1])
 
-    route = OpCode.route(code=op_code)
-    final_msg = {
-        "operate_code": op_code,
-        "data": json_data
-    }
+            # data = {
+            #     "ts_code": key,
+            #     "comment": date_dict[i[0]],
+            #     "comment_date": i[0],
+            #     "num": value[0]
+            # }
+            data = {
+                "ts_code": key,
+                "content": comment_list,
+                "comment_date": status_code.get_value('the_day'),
+                "num": value[0]
+            }
+            final_msg = {
+                "operate_code": op_code,
+                "data": data
+            }
+            log_and_post(final_msg, route)
+
+
+def log_and_post(final_msg, route):
     # Thread(target=final_msg_poster, args=(final_msg, route)).start()
-    print(json.dumps(final_msg)[:150] + ".........")
-    print(df)
-    final_msg_poster(final_msg, route)
+    print(final_msg)
+    # final_msg_poster(final_msg, route)
     print("------------------------------------------------------")
 
 
@@ -127,7 +165,8 @@ class Tushare:
 
     # get today's index number or stock price
     def get_price_today(self, ts_code: str, is_index: bool):
-        today = get_today()
+        # today = get_today()
+        today = status_code.get_value('the_day')
         if self.cal[today]:
             self.get_price_daily(ts_code, today, today, is_index)
         else:
@@ -202,13 +241,16 @@ class Daily:
     # iterate the index list or stock list to get the data of specific index or stock
     def get_price(self, only_today=True):
         order = 0
-        tscode_list = self.get_tscode_list()
+        tscode_list = list(map(lambda x: x[0], self.get_tscode_list()))
         f = self.tu.get_price_today if only_today else self.tu.get_price_year
-        for is_index in [True, False]:
-            for code in tscode_list:
-                order += 1
-                print(f"order: {order}, request for price of {code}...")
-                f(code, is_index)
+        # iter 10 days
+        for i in range(10):
+            status_code.set_value('the_day', get_the_day_before(i))
+            for is_index in [True, False]:
+                for code in tscode_list:
+                    order += 1
+                    print(f"order: {order}, request for price of {code}...")
+                    f(code, is_index)
 
 
 # base class for basic crawler operation
