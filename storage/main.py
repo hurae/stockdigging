@@ -520,4 +520,4 @@ async def post_code_collection(code_collection: CodeCollection):
         return response
 
 
-uvicorn.run(app, host='192.168.43.64', port=8000)
+uvicorn.run(app, host='192.168.43.106', port=8000)

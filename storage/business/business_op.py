@@ -40,8 +40,8 @@ query3 = session.query( IndexInfo.ts_code ).all()
 ans3 = [ele for ele in (map( lambda item: (item[0]), query3 ))]
 length3 = len( ans3 )
 flag3 = 0
+#print(length3)
 
-print(length3)
 def stock_tscode():
     query2 = session.query(StockInfo.ts_code).all()
     ans2 = [ele for ele in (map(lambda item: (item[0]), query2))]
@@ -114,7 +114,7 @@ def set_index_info(ts_code, name, fullname, market, publisher, index_type, categ
 
 
 # operation 7 插入股票信息
-def set_stock_info(ts_code, stock_name, stock_code, list_data, area, industry):
+def set_stock_info(ts_code, stock_code,stock_name,area, industry, list_data):
     if extract_stock_id( ts_code ) != 0:
         session.query( StockInfo ).filter( StockInfo.ts_code == ts_code ).update(
             {"stock_name": stock_name, "stock_code": stock_code, "list_data": list_data, "area": area,
@@ -130,7 +130,7 @@ def set_stock_info(ts_code, stock_name, stock_code, list_data, area, industry):
     session.commit()
 
 
-# set_stock_info('12', '测试9', '45', '1999-9-9', '23', '23')
+#set_stock_info('12', '测试9', '45', '23', '23','1999-9-9')
 
 
 # operation 8 插入指数行情
